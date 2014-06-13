@@ -354,6 +354,8 @@ class SSIMLoss(Layer, VisLayer):
         else:
             self.input = input
         assert image_shape == response.resp_shape
+        kernel = [[np.exp((-x*x-y*y)*0.5/gsigma/gsigma)/(gsigma * np.sqrt(2*np.pi)) for x in range(-gkern, gkern+1)] for y in range(-gkern, gkern+1)]
+        KERNEL =  theano.shared(kernel, name='SSIM_KERNEL_%s_%s'%(gkern,gsigma))
 
         iflat = self.input.reshape((image_shape[0]*image_shape[1], image_shape[2], image_shape[3]))
         oflat = self.response.resp.reshape((image_shape[0]*image_shape[1], image_shape[2], image_shape[3]))
