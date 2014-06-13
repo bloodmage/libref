@@ -155,7 +155,7 @@ class ShrinkshapeFractal(Layer):
 
 class ExpandshapeFractal(Layer):
 
-    def __init__(self, input, shrinksamplelayer, input_shape=None, calibrate = True):
+    def __init__(self, input, shrinksamplelayer, input_shape=None, calibrate = True, smallestexpand = False):
         if isinstance(input, Layer):
             self.input = input.output
             if input_shape == None:
@@ -180,11 +180,12 @@ class ExpandshapeFractal(Layer):
         odd3 = (shrinksamplelayer.input_shape[3]&1)==1
         #Expand data 4 fold
         output = T.set_subtensor(output[:,:input_shape[1],::2,::2], self.input)
-        output = T.set_subtensor(output[:,:input_shape[1],::2,1::2], self.input[:,:,:,:-1] if odd3 else self.input)
-        output = T.set_subtensor(output[:,:input_shape[1],1::2,::2], self.input[:,:,:-1,:] if odd2 else self.input)
-        t = self.input[:,:,:-1,:] if odd2 else self.input
-        t = t[:,:,:,:-1] if odd3 else t
-        output = T.set_subtensor(output[:,:input_shape[1],1::2,1::2],t)
+        if not smallestexpand:
+            output = T.set_subtensor(output[:,:input_shape[1],::2,1::2], self.input[:,:,:,:-1] if odd3 else self.input)
+            output = T.set_subtensor(output[:,:input_shape[1],1::2,::2], self.input[:,:,:-1,:] if odd2 else self.input)
+            t = self.input[:,:,:-1,:] if odd2 else self.input
+            t = t[:,:,:,:-1] if odd3 else t
+            output = T.set_subtensor(output[:,:input_shape[1],1::2,1::2],t)
         
         #Feed calibrate data
         if calibrate:

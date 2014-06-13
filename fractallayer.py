@@ -140,7 +140,7 @@ class ShrinkshapeFractal(Layer):
 
 class ExpandshapeFractal(Layer):
 
-    def __init__(self, input, shrinksamplelayer, input_shape=None, calibrate = True):
+    def __init__(self, input, shrinksamplelayer, input_shape=None, calibrate = True, smallestexpand = False):
         if isinstance(input, Layer):
             self.input = input.output
             if input_shape == None:
@@ -163,14 +163,16 @@ class ExpandshapeFractal(Layer):
         #Expand data 4 fold
         if (shrinksamplelayer.input_shape[2]&1)==0:
             output = T.set_subtensor(output[:,:input_shape[1],::2,::2], self.input)
-            output = T.set_subtensor(output[:,:input_shape[1],::2,1::2], self.input)
-            output = T.set_subtensor(output[:,:input_shape[1],1::2,::2], self.input)
-            output = T.set_subtensor(output[:,:input_shape[1],1::2,1::2], self.input)
+            if not smallestexpand:
+                output = T.set_subtensor(output[:,:input_shape[1],::2,1::2], self.input)
+                output = T.set_subtensor(output[:,:input_shape[1],1::2,::2], self.input)
+                output = T.set_subtensor(output[:,:input_shape[1],1::2,1::2], self.input)
         else:
             output = T.set_subtensor(output[:,:input_shape[1],::2,::2], self.input)
-            output = T.set_subtensor(output[:,:input_shape[1],::2,1::2], self.input[:,:,:,:-1])
-            output = T.set_subtensor(output[:,:input_shape[1],1::2,::2], self.input[:,:,:-1,:])
-            output = T.set_subtensor(output[:,:input_shape[1],1::2,1::2], self.input[:,:,:-1,:-1])
+            if not smallestexpand:
+                output = T.set_subtensor(output[:,:input_shape[1],::2,1::2], self.input[:,:,:,:-1])
+                output = T.set_subtensor(output[:,:input_shape[1],1::2,::2], self.input[:,:,:-1,:])
+                output = T.set_subtensor(output[:,:input_shape[1],1::2,1::2], self.input[:,:,:-1,:-1])
         
         #Feed calibrate data
         if calibrate:
