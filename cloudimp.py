@@ -12,7 +12,7 @@ import urlparse
 def cloudimport(url):
     fname = urlparse.urlsplit(url).path.split('/')[-1]
     hexpart = md5.md5(url).hexdigest()[:8]
-    totalname = fname.split('.')[-1]+'_'+hexpart
+    totalname = fname.split('.')[-2]+'_'+hexpart
 
     doc = urllib2.urlopen(url).read()
     

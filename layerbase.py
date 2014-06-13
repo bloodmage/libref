@@ -1,10 +1,13 @@
 import numpy as np
 import numpy.random as npr
-import theano
-import theano.tensor as T
-import theano.tensor.nnet as nnet
-from theano.tensor.signal import downsample
-from theano.tensor.nnet import conv
+try:
+    import theano
+    import theano.tensor as T
+    import theano.tensor.nnet as nnet
+    from theano.tensor.signal import downsample
+    from theano.tensor.nnet import conv
+except:
+    print "THEANO ERROR, THEANO-Based functions are disabled"
 import os
 import math
 
