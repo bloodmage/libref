@@ -358,7 +358,7 @@ class SSIMLoss(Layer, VisLayer):
         KERNEL =  theano.shared(kernel, name='SSIM_KERNEL_%s_%s'%(gkern,gsigma))
 
         iflat = self.input.reshape((image_shape[0]*image_shape[1], image_shape[2], image_shape[3]))
-        oflat = self.response.resp.reshape((image_shape[0]*image_shape[1], image_shape[2], image_shape[3]))
+        oflat = response.resp.reshape((image_shape[0]*image_shape[1], image_shape[2], image_shape[3]))
         iflatsqr = iflat * iflat
         oflatsqr = oflat * oflat
         crossflat = iflat * oflat
