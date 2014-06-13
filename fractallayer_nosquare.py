@@ -213,53 +213,7 @@ class AggregationLayer(Layer):
             self.output = T.set_subtensor(self.output[:,channels:channels+i.output_shape[1]], i.output)
             channels += i.output_shape[1]
 
-class ConvKeepLayer(Layer, Param, VisLayer):
-
-    def __init__(self, rng, input, filter_shape, image_shape = None, Nonlinear = "tanh", zeroone = False, inc=[0], dropout = False, dropoutrnd = None):
-
-        if isinstance(input, Layer):
-            self.input = input.output 
-            if image_shape==None:
-                image_shape = input.output_shape
-        else:
-            self.input = input
-        print image_shape[1]
-        #assert image_shape[1] == filter_shape[1]
-        assert filter_shape[2]%2 == 1
-        assert filter_shape[3]%2 == 1
-        med = (filter_shape[2]-1)/2,(filter_shape[3]-1)/2
-
-        fan_in = np.prod(filter_shape[1:])
-        W_values = np.asarray(rng.uniform(
-              low=-np.sqrt(0.5/fan_in),
-              high=np.sqrt(0.5/fan_in),
-              size=filter_shape), dtype=theano.config.floatX)
-        self.W = theano.shared(value=W_values, name='W_%s'%inc[0])
-
-        b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
-        self.b = theano.shared(value=b_values, name='b_%s'%inc[0])
-
-        conv_out = conv.conv2d(self.input, self.W,
-                filter_shape=filter_shape, image_shape=image_shape, border_mode="full")
-        #Get middle area
-        conv_out = conv_out[:,:,med[0]:-med[0],med[1]:-med[1]]
-
-        if Nonlinear:
-            self.output = T.tanh(conv_out + self.b.dimshuffle('x', 0, 'x', 'x'))
-            if zeroone:
-                self.output = (self.output+1) * 0.5
-        else:
-            self.output = conv_out + self.b.dimshuffle('x', 0, 'x', 'x')
-        self.output_shape = (image_shape[0], filter_shape[0], image_shape[2], image_shape[3])
-        
-        #dropout = False
-        if not (dropout is False): #Embed a layerwise dropout layer
-            self.output = LayerbasedDropOut(self, dropoutrnd, dropout).output
-        
-        self.params = [self.W, self.b]
-
-        inc[0] = inc[0]+1
- 
+from layerbase import ConvKeepLayer
 
 if __name__=="__main__":
     import numpy as np

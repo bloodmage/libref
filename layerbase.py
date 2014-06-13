@@ -91,14 +91,11 @@ class ConvLayer(Layer, Param, VisLayer):
 
         conv_out = conv.conv2d(self.input, self.W,
                 filter_shape=filter_shape, image_shape=image_shape, border_mode="valid" if isShrink else "full")
-
-        if Nonlinear:
-            self.output = T.tanh(conv_out + self.b.dimshuffle('x', 0, 'x', 'x'))
-            if zeroone:
-                self.output = (self.output+1) * 0.5
-        else:
-            self.output = conv_out + self.b.dimshuffle('x', 0, 'x', 'x')
-
+        
+        self.output = nonlinear(conv_out + self.b.dimshuffle('x', 0, 'x', 'x'), Nonlinear)
+        if zeroone:
+            self.output = (self.output+1) * 0.5
+        
         self.output_shape = (image_shape[0], filter_shape[0],
                 image_shape[2]-filter_shape[2]+1 if isShrink else image_shape[2]+filter_shape[2]-1,
                 image_shape[3]-filter_shape[3]+1 if isShrink else image_shape[3]+filter_shape[3]-1)
@@ -209,12 +206,9 @@ class ConvKeepLayer(Layer, Param, VisLayer):
         #Get middle area
         conv_out = conv_out[:,:,med[0]:-med[0],med[1]:-med[1]]
 
-        if Nonlinear:
-            self.output = T.tanh(conv_out + self.b.dimshuffle('x', 0, 'x', 'x'))
-            if zeroone:
-                self.output = (self.output+1) * 0.5
-        else:
-            self.output = conv_out + self.b.dimshuffle('x', 0, 'x', 'x')
+        self.output = nonlinear(conv_out + self.b.dimshuffle('x', 0, 'x', 'x'), Nonlinear)
+        if zeroone:
+            self.output = (self.output+1) * 0.5
         self.output_shape = (image_shape[0], filter_shape[0], image_shape[2], image_shape[3])
         
 
