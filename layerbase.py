@@ -6,6 +6,7 @@ try:
     import theano.tensor.nnet as nnet
     from theano.tensor.signal import downsample
     from theano.tensor.nnet import conv
+    import theano.tensor.signal.conv as sconv
 except:
     print "THEANO ERROR, THEANO-Based functions are disabled"
 import os
@@ -341,6 +342,40 @@ class SquareLoss(Layer, VisLayer):
         targets = response.resp
         self.loss = self.squareloss = T.sum((targets-input.output)*(targets-input.output)*(1 if mask==None else mask))
         self.output = targets
+        self.output_shape = response.resp_shape
+
+class SSIMLoss(Layer, VisLayer):
+    
+    def __init__(self, input, response, image_shape = None, gkern = 5, gsigma = 1.5):
+        if isinstance(input, Layer):
+            self.input = input.output 
+            if image_shape==None:
+                image_shape = input.output_shape
+        else:
+            self.input = input
+        assert image_shape == response.resp_shape
+
+        iflat = self.input.reshape((image_shape[0]*image_shape[1], image_shape[2], image_shape[3]))
+        oflat = self.response.resp.reshape((image_shape[0]*image_shape[1], image_shape[2], image_shape[3]))
+        iflatsqr = iflat * iflat
+        oflatsqr = oflat * oflat
+        crossflat = iflat * oflat
+
+        iwindow = sconv.conv2d(iflat, KERNEL, image_shape = image_shape, filter_shape = (gkern*2+1, gkern*2+1), border_mode = 'full')[:,gkern:-gkern, gkern:-gkern].reshape(image_shape)
+        isqrwin = sconv.conv2d(iflatsqr, KERNEL, image_shape = image_shape, filter_shape = (gkern*2+1, gkern*2+1), border_mode = 'full')[:,gkern:-gkern, gkern:-gkern].reshape(image_shape)
+        owindow = sconv.conv2d(oflat, KERNEL, image_shape = image_shape, filter_shape = (gkern*2+1, gkern*2+1), border_mode = 'full')[:,gkern:-gkern, gkern:-gkern].reshape(image_shape)
+        osqrwin = sconv.conv2d(oflatsqr, KERNEL, image_shape = image_shape, filter_shape = (gkern*2+1, gkern*2+1), border_mode = 'full')[:,gkern:-gkern, gkern:-gkern].reshape(image_shape)
+        crosswin = sconv.conv2d(crossflat, KERNEL, image_shape = image_shape, filter_shape = (gkern*2+1, gkern*2+1), border_mode = 'full')[:,gkern:-gkern, gkern:-gkern].reshape(image_shape)
+
+        vari = isqrwin - iwindow*iwindow
+        varo = osqrwin - owindow*owindow
+        cross = crosswin - iwindow*owindow
+
+        SSIMblk = (2*iwindow*owindow + c1)*(2*cross + c2)/(iwindow*iwindow + owindow*owindow + c1)/(vari*vari + varo*varo + c2)
+        SSIM = SSIMblk.mean()
+        self.loss = 1-SSIM
+
+        self.output = response.resp
         self.output_shape = response.resp_shape
 
 class DropOut(Layer):
