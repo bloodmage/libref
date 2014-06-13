@@ -15,12 +15,14 @@ def cloudimport(url):
     mname = fname.split('.')[-2]
     totalname = mname+'_'+hexpart
 
-    doc = urllib2.urlopen(url).read()
+    try:
+        doc = urllib2.urlopen(url).read()
     
-    if (not os.path.exists(totalname+'.py')) or doc!=file(totalname+'.py','rb').read():
-        print "REFRESH MODULE",totalname
-        file(totalname+'.py','wb').write(doc)
-    
+        if (not os.path.exists(totalname+'.py')) or doc!=file(totalname+'.py','rb').read():
+            print "REFRESH MODULE",totalname
+            file(totalname+'.py','wb').write(doc)
+    except:
+        print "OFFLINE"
     module = __import__(totalname)
     sys.modules[mname] = module
     return module

@@ -409,7 +409,10 @@ class Model:
             idx += 1
             if isinstance(i,Param):
                 for j in i.params:
-                    j.set_value(obj['%s_%s'%(idx,j.name)])
+                    try:
+                        j.set_value(obj['%s_%s'%(idx,j.name)])
+                    except:
+                        print "CANNOT SET",'%s_%s'%(idx,j.name)
     
     def outputs(self):
         p = []
