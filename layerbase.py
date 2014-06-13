@@ -373,7 +373,7 @@ class SSIMLoss(Layer, VisLayer):
         varo = osqrwin - owindow*owindow
         cross = crosswin - iwindow*owindow
 
-        SSIMblk = (2*iwindow*owindow + c1)*(2*cross + c2)/(iwindow*iwindow + owindow*owindow + c1)/(vari*vari + varo*varo + c2)
+        SSIMblk = (2*iwindow*owindow + c1)*(2*cross + c2)/(iwindow*iwindow + owindow*owindow + c1)/(vari + varo + c2)
         SSIM = SSIMblk.mean()
         self.loss = 1-SSIM
 
