@@ -12,7 +12,8 @@ import urlparse
 def cloudimport(url):
     fname = urlparse.urlsplit(url).path.split('/')[-1]
     hexpart = md5.md5(url).hexdigest()[:8]
-    totalname = fname.split('.')[-2]+'_'+hexpart
+    mname = fname.split('.')[-2]
+    totalname = mname+'_'+hexpart
 
     doc = urllib2.urlopen(url).read()
     
@@ -20,5 +21,8 @@ def cloudimport(url):
         print "REFRESH MODULE",totalname
         file(totalname+'.py','wb').write(doc)
     
-    return __import__(totalname)
+    module = __import__(totalname)
+    sys.modules[mname] = module
+    return module
+
 
