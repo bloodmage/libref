@@ -60,7 +60,7 @@ def nonlinear(input, nonlinear = 'tanh'):
         return T.tanh(input)
     elif nonlinear == 'rectifier':
         return input * (input > 0)
-    elif nnolinear == 'sigmoid':
+    elif nonlinear == 'sigmoid':
         return nnet.sigmoid(input)
     elif nonlinear == 'linear' or not nonlinear:
         return input
