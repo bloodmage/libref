@@ -447,6 +447,7 @@ class Model:
             if isinstance(i,Param):
                 for j in i.params:
                     try:
+                        assert j.get_value().shape == obj['%s_%s'%(idx,j.name)].shape
                         j.set_value(obj['%s_%s'%(idx,j.name)])
                     except:
                         print "CANNOT SET",'%s_%s'%(idx,j.name)
