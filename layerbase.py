@@ -397,7 +397,7 @@ class LayerbasedDropOut(Layer):
         self.rnd = T.shape_padright(self.rnd, len(input.output_shape)-2)
         self.output = self.data*(1+symboldropout*(self.rnd*2-1))
 
-class LogSoftmaxLayer(Layer):
+class LogSoftmaxLayer(Layer, VisLayer):
 
     def __init__(self,input):
         self.output_shape = input.output_shape
