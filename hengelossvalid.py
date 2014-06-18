@@ -38,8 +38,8 @@ def binaryloss(layerout, label, thresholdlayer, thresholdlabel):
 
     return obinary, tpos,fpos,tneg,fneg, F
 
-def binaryloss_label(layerout, label, thresholdlabel, addlast = 0.0):
-    layerout =  T.inc_subtensor(layerout[:,-1], addlast)
+def binaryloss_label(layerout, label, thresholdlabel, addlast = 0.0, mullast = 1.0):
+    layerout =  T.set_subtensor(layerout[:,-1], layerout[:,-1]*mullast + addlast)
     maxaxes = T.max(layerout, axis=1, keepdims=True)
     obinary = T.switch(T.ge(layerout, maxaxes), 1.0, 0.0)
     lbinary = T.switch(T.gt(label, thresholdlabel), 1.0, 0.0)
