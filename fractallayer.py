@@ -19,6 +19,7 @@ class StacksampleFractal(Layer):
     def __init__(self, input, input_shape = None, feedval = 0.0):
         if isinstance(input, Layer):
             self.input = input.output
+            Layer.linkstruct[input].append(self)
             if input_shape == None:
                 input_shape = input.output_shape
         else:
@@ -61,6 +62,7 @@ class DestacksampleFractal(Layer):
     def __init__(self, input, stacksamplelayer, input_shape = None):
         if isinstance(input, Layer):
             self.input = input.output
+            Layer.linkstruct[input].append(self)
             if input_shape == None:
                 input_shape = input.output_shape
         else:
@@ -97,6 +99,7 @@ class ShrinkshapeMeanFractal(Layer):
     def __init__(self,input,input_shape = None):
         if isinstance(input, Layer):
             self.input = input.output
+            Layer.linkstruct[input].append(self)
             if input_shape == None:
                 input_shape = input.output_shape
         else:
@@ -120,6 +123,7 @@ class ShrinkshapeFractal(Layer):
     def __init__(self,input,input_shape = None):
         if isinstance(input, Layer):
             self.input = input.output
+            Layer.linkstruct[input].append(self)
             if input_shape == None:
                 input_shape = input.output_shape
         else:
@@ -143,6 +147,7 @@ class ExpandshapeFractal(Layer):
     def __init__(self, input, shrinksamplelayer, input_shape=None, calibrate = True, smallestexpand = False):
         if isinstance(input, Layer):
             self.input = input.output
+            Layer.linkstruct[input].append(self)
             if input_shape == None:
                 input_shape = input.output_shape
         else:
@@ -197,6 +202,7 @@ class AggregationLayer(Layer):
         self.output = T.alloc(dtypeX(0.0), *self.output_shape)
         channels = 0
         for i in layers:
+            Layer.linkstruct[i].append(self)
             self.output = T.set_subtensor(self.output[:,channels:channels+i.output_shape[1]], i.output)
             channels += i.output_shape[1]
 

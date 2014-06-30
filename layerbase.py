@@ -52,9 +52,13 @@ class safefile:
             except: pass
             os.rename(self.name+'.tmp', self.name)
 
-class Layer: pass
+import collections
+class Layer:
+    linkstruct = collections.defaultdict(lambda:[])
+
 class Param: pass
 class VisLayer: pass
+class LossLayer: pass
 
 def nonlinear(input, nonlinear = 'tanh'):
     if nonlinear == 'tanh' or nonlinear == True:
@@ -74,6 +78,7 @@ class ConvLayer(Layer, Param, VisLayer):
 
         if isinstance(input, Layer):
             self.input = input.output 
+            Layer.linkstruct[input].append(self)
             if image_shape==None:
                 image_shape = input.output_shape
         else:
@@ -111,6 +116,7 @@ class ConvMaxoutLayer(Layer, Param, VisLayer):
 
         if isinstance(input, Layer):
             self.input = input.output
+            Layer.linkstruct[input].append(self)
             if image_shape==None:
                 image_shape = input.output_shape
         else:
@@ -149,6 +155,7 @@ class MLPConvLayer(Layer, Param, VisLayer):
 
         if isinstance(input, Layer):
             self.input = input.output
+            Layer.linkstruct[input].append(self)
             if image_shape == None:
                 image_shape = input.output_shape
         else:
@@ -183,6 +190,7 @@ class ConvKeepLayer(Layer, Param, VisLayer):
 
         if isinstance(input, Layer):
             self.input = input.output 
+            Layer.linkstruct[input].append(self)
             if image_shape==None:
                 image_shape = input.output_shape
         else:
@@ -226,6 +234,7 @@ class Maxpool2DLayer(Layer):
 
         if isinstance(input, Layer):
             self.input = input.output
+            Layer.linkstruct[input].append(self)
             if image_shape==None:
                 image_shape = input.output_shape
         else:
@@ -243,6 +252,7 @@ class Maxpool2D1DLayer(Layer):
 
         if isinstance(input, Layer):
             self.input = input.output
+            Layer.linkstruct[input].append(self)
             if image_shape==None:
                 image_shape = input.output_shape
         else:
@@ -258,6 +268,7 @@ class FullConnectLayer(Layer, Param, VisLayer):
 
         if isinstance(input, Layer):
             self.input = input.output
+            Layer.linkstruct[input].append(self)
             if input_shape==None:
                 input_shape = input.output_shape
         else:
@@ -325,9 +336,10 @@ class SymbolDataLayer(Layer, VisLayer):
         self.label = self.resp
     
 
-class MaskedHengeLoss(Layer, VisLayer):
+class MaskedHengeLoss(Layer, VisLayer, LossLayer):
 
     def __init__(self,input,response):
+        Layer.linkstruct[response].append(self)
         targets = response.resp
         mask = T.sgn(targets)
         antargets=T.switch(T.gt(targets,0),targets,1+targets)
@@ -336,15 +348,16 @@ class MaskedHengeLoss(Layer, VisLayer):
         self.output_shape = response.resp_shape
 
 
-class SquareLoss(Layer, VisLayer):
+class SquareLoss(Layer, VisLayer, LossLayer):
 
     def __init__(self,input,response,mask=None):
+        Layer.linkstruct[response].append(self)
         targets = response.resp
         self.loss = self.squareloss = T.sum((targets-input.output)*(targets-input.output)*(1 if mask==None else mask))
         self.output = targets
         self.output_shape = response.resp_shape
 
-class SSIMLoss(Layer, VisLayer):
+class SSIMLoss(Layer, VisLayer, LossLayer):
     
     def __init__(self, input, response, image_shape = None, gkern = 5, gsigma = 1.5, c1 = 6.5025, c2 = 58.5225):
         if isinstance(input, Layer):
@@ -353,6 +366,7 @@ class SSIMLoss(Layer, VisLayer):
                 image_shape = input.output_shape
         else:
             self.input = input
+        Layer.linkstruct[response].append(self)
         assert image_shape == response.resp_shape
         kernel = np.array([[np.exp((-x*x-y*y)*0.5/gsigma/gsigma)/(gsigma * np.sqrt(2*np.pi)) for x in range(-gkern, gkern+1)] for y in range(-gkern, gkern+1)],'f')
         KERNEL =  theano.shared(kernel, name='SSIM_KERNEL_%s_%s'%(gkern,gsigma))
@@ -384,6 +398,7 @@ class DropOut(Layer):
 
     def __init__(self,input,rnd,symboldropout=1):
         self.data=input.output
+        Layer.linkstruct[input].append(self)
         self.output_shape=input.output_shape
         self.rnd=rnd.binomial(size=input.output_shape, dtype='float32')
         self.output=self.data*(1+symboldropout*(self.rnd*2-1))
@@ -392,6 +407,7 @@ class LayerbasedDropOut(Layer):
 
     def __init__(self,input,rnd,symboldropout=1):
         self.data=input.output
+        Layer.linkstruct[input].append(self)
         self.output_shape=input.output_shape
         self.rnd=rnd.binomial(size=input.output_shape[0:2], dtype='float32')
         self.rnd = T.shape_padright(self.rnd, len(input.output_shape)-2)
@@ -401,15 +417,17 @@ class LogSoftmaxLayer(Layer, VisLayer):
 
     def __init__(self,input):
         self.output_shape = input.output_shape
+        Layer.linkstruct[input].append(self)
         tdat = input.output.reshape((np.prod(self.output_shape[0:-1]),self.output_shape[-1]))
         tdat = tdat - tdat.max(axis=1,keepdims=True)
         tdat = tdat - T.log(T.exp(tdat).sum(axis=1,keepdims=True))
 
         self.output = tdat.reshape(self.output_shape)
 
-class LabelLoss(Layer, VisLayer):
+class LabelLoss(Layer, VisLayer, LossLayer):
 
     def __init__(self,input,truth):
+        Layer.linkstruct[input].append(self)
         self.loss = -(input.output * truth.resp).sum()
         self.output = truth.resp
         self.output_shape = truth.output_shape
@@ -428,6 +446,10 @@ class Model:
 
     def __init__(self, *layers):
         self.layers = layers
+        for i in self.layers:
+            if isinstance(i,LossLayer):
+                self.loss = i
+                break
 
     def save(self, fileobj):
         idx = 0
