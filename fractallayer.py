@@ -6,7 +6,7 @@ import theano.gof
 import theano
 
 from theano.sandbox.neighbours import images2neibs
-from layerbase import Layer, Param, VisLayer, LayerbasedDropOut
+from layerbase import Layer, Param, VisLayer, LayerbasedDropOut, VisSamerank
 from theano.tensor.nnet import conv
 INF = 1e10
 b3tensor = T.TensorType(dtype = theano.config.floatX, broadcastable = [])
@@ -14,7 +14,7 @@ b3tensor = T.TensorType(dtype = theano.config.floatX, broadcastable = [])
 def dtypeX(val):
     return val + 0.0
 
-class StacksampleFractal(Layer):
+class StacksampleFractal(Layer, VisSamerank):
     
     def __init__(self, input, input_shape = None, feedval = 0.0):
         if isinstance(input, Layer):
@@ -57,7 +57,7 @@ class StacksampleFractal(Layer):
         self.output = joined
         self.output_shape = input_shape[0]*4, self.one_channel[1], self.one_channel[2], self.one_channel[3]
 
-class DestacksampleFractal(Layer):
+class DestacksampleFractal(Layer, VisSamerank):
 
     def __init__(self, input, stacksamplelayer, input_shape = None):
         if isinstance(input, Layer):
@@ -94,7 +94,7 @@ class DestacksampleFractal(Layer):
             self.output = T.set_subtensor(self.output[:,:,1::2,::2], c10[:,:,:-1,:])
             self.output = T.set_subtensor(self.output[:,:,1::2,1::2], c11[:,:,:-1,:-1])
 
-class ShrinkshapeMeanFractal(Layer):
+class ShrinkshapeMeanFractal(Layer, VisSamerank):
 
     def __init__(self,input,input_shape = None):
         if isinstance(input, Layer):
@@ -118,7 +118,7 @@ class ShrinkshapeMeanFractal(Layer):
         
         self.output_shape = input_shape[0], input_shape[1], (input_shape[2]+1)/2, (input_shape[3]+1)/2
 
-class ShrinkshapeFractal(Layer):
+class ShrinkshapeFractal(Layer, VisSamerank):
 
     def __init__(self,input,input_shape = None):
         if isinstance(input, Layer):
@@ -142,7 +142,7 @@ class ShrinkshapeFractal(Layer):
         self.output = max_pool(inputext, (3,3), (2,2), shapeext[2:])
         self.output_shape = input_shape[0], input_shape[1], (input_shape[2]+1)/2, (input_shape[3]+1)/2
 
-class ExpandshapeFractal(Layer):
+class ExpandshapeFractal(Layer, VisSamerank):
 
     def __init__(self, input, shrinksamplelayer, input_shape=None, calibrate = True, smallestexpand = False):
         if isinstance(input, Layer):

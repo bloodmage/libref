@@ -59,6 +59,7 @@ class Layer:
 class Param: pass
 class VisLayer: pass
 class LossLayer: pass
+class VisSamerank: pass
 
 def nonlinear(input, nonlinear = 'tanh'):
     if nonlinear == 'tanh' or nonlinear == True:
@@ -228,7 +229,7 @@ class ConvKeepLayer(Layer, Param, VisLayer):
 
         inc[0] = inc[0]+1
 
-class Maxpool2DLayer(Layer):
+class Maxpool2DLayer(Layer,VisSamerank):
 
     def __init__(self, input, max_pool_size = (2,2), ignore_border = False, image_shape = None):
 
@@ -246,7 +247,7 @@ class Maxpool2DLayer(Layer):
         else:
             self.output_shape = (image_shape[0], image_shape[1], image_shape[2]/max_pool_size[0], image_shape[3]/max_pool_size[1])
 
-class Maxpool2D1DLayer(Layer):
+class Maxpool2D1DLayer(Layer,VisSamerank):
 
     def __init__(self, input, image_shape = None):
 
@@ -394,7 +395,7 @@ class SSIMLoss(Layer, VisLayer, LossLayer):
         self.output = response.resp
         self.output_shape = response.resp_shape
 
-class DropOut(Layer):
+class DropOut(Layer, VisSamerank):
 
     def __init__(self,input,rnd,symboldropout=1):
         self.data=input.output
@@ -403,7 +404,7 @@ class DropOut(Layer):
         self.rnd=rnd.binomial(size=input.output_shape, dtype='float32')
         self.output=self.data*(1+symboldropout*(self.rnd*2-1))
 
-class LayerbasedDropOut(Layer):
+class LayerbasedDropOut(Layer, VisSamerank):
 
     def __init__(self,input,rnd,symboldropout=1):
         self.data=input.output
@@ -413,7 +414,7 @@ class LayerbasedDropOut(Layer):
         self.rnd = T.shape_padright(self.rnd, len(input.output_shape)-2)
         self.output = self.data*(1+symboldropout*(self.rnd*2-1))
 
-class LogSoftmaxLayer(Layer, VisLayer):
+class LogSoftmaxLayer(Layer, VisLayer, VisSamerank):
 
     def __init__(self,input):
         self.output_shape = input.output_shape
