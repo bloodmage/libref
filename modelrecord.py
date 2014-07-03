@@ -391,7 +391,19 @@ class Record:
         for i in os.urandom(40):
             a = a*256 + ord(i)
         A = pow(G,a,N)
-        naming = raw_input('Experiment Name:')
+        from select import select
+        print "Experiment name:",
+        try:
+            rlist, _, _ = select([sys.stdin], [], [], 30)
+            if rlist:
+                naming = sys.stdin.readline().strip()
+            else:
+                print "Use default name"
+                naming = ''
+        except KeyboardInterrupt:
+            raise
+        except:
+            naming = raw_input()
         #Call service
         val = self.rest.blockcall('http://'+self.server+'/newexperiment',{'meta':json.dumps(self.meta),'serieshash':_gethash(), 'A':str(A), 'naming': naming})
         vald = json.loads(val)

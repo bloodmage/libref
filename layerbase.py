@@ -443,6 +443,11 @@ def makesoftmaxlabel(raw, threshold = 50):
 
     return processed
 
+def makehenge(raw, minv = 0, midv = 127, maxv = 255):
+    raw = raw.asarray('f')
+    v = np.where(raw<midv, (raw-midv)/(midv-minv), (raw-midv)/(maxv-midv))
+    return v.clip(-1,1)
+
 class Model:
 
     def __init__(self, *layers):
