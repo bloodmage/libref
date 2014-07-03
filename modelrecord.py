@@ -393,6 +393,7 @@ class Record:
         A = pow(G,a,N)
         from select import select
         print "Experiment name:",
+        sys.stdout.flush()
         try:
             rlist, _, _ = select([sys.stdin], [], [], 30)
             if rlist:
