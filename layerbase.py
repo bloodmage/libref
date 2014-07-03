@@ -340,7 +340,7 @@ class SymbolDataLayer(Layer, VisLayer):
 class MaskedHengeLoss(Layer, VisLayer, LossLayer):
 
     def __init__(self,input,response):
-        Layer.linkstruct[response].append(self)
+        Layer.linkstruct[input].append(self)
         targets = response.resp
         mask = T.sgn(targets)
         antargets=T.switch(T.gt(targets,0),targets,1+targets)
@@ -352,7 +352,7 @@ class MaskedHengeLoss(Layer, VisLayer, LossLayer):
 class SquareLoss(Layer, VisLayer, LossLayer):
 
     def __init__(self,input,response,mask=None):
-        Layer.linkstruct[response].append(self)
+        Layer.linkstruct[input].append(self)
         targets = response.resp
         self.loss = self.squareloss = T.sum((targets-input.output)*(targets-input.output)*(1 if mask==None else mask))
         self.output = targets
@@ -367,7 +367,7 @@ class SSIMLoss(Layer, VisLayer, LossLayer):
                 image_shape = input.output_shape
         else:
             self.input = input
-        Layer.linkstruct[response].append(self)
+        Layer.linkstruct[input].append(self)
         assert image_shape == response.resp_shape
         kernel = np.array([[np.exp((-x*x-y*y)*0.5/gsigma/gsigma)/(gsigma * np.sqrt(2*np.pi)) for x in range(-gkern, gkern+1)] for y in range(-gkern, gkern+1)],'f')
         KERNEL =  theano.shared(kernel, name='SSIM_KERNEL_%s_%s'%(gkern,gsigma))
