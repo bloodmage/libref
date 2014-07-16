@@ -4,9 +4,11 @@ import theano.sandbox
 import theano.gof
 import theano
 
+from theano import config
 from theano.sandbox.neighbours import images2neibs
 from layerbase import Layer, Param, VisLayer, LayerbasedDropOut, VisSamerank
 from theano.tensor.nnet import conv
+from theano.tensor.signal.downsample import max_pool_2d
 INF = 1e10
 b3tensor = T.TensorType(dtype = theano.config.floatX, broadcastable = [])
 
@@ -74,10 +76,6 @@ def max_pool(bc01, pool_shape, pool_stride, image_shape):
                             pool_stride[1]) * pool_stride[1]
     required_c = last_pool_c + pc
 
-    for bc01v in get_debug_values(bc01):
-        assert not np.any(np.isinf(bc01v))
-        assert bc01v.shape[2] == image_shape[0]
-        assert bc01v.shape[3] == image_shape[1]
 
     wide_infinity = T.alloc(T.constant(-np.inf, dtype=config.floatX),
                             bc01.shape[0],
@@ -107,10 +105,7 @@ def max_pool(bc01, pool_shape, pool_stride, image_shape):
 
     mx.name = 'max_pool('+name+')'
 
-    for mxv in get_debug_values(mx):
-        assert not np.any(np.isnan(mxv))
-        assert not np.any(np.isinf(mxv))
-
+ 
     return mx
 
 
