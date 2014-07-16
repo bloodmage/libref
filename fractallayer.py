@@ -1,5 +1,4 @@
 import numpy as np
-from pylearn2.models.mlp import max_pool
 import theano.tensor as T
 import theano.sandbox
 import theano.gof
@@ -10,6 +9,110 @@ from layerbase import Layer, Param, VisLayer, LayerbasedDropOut, VisSamerank
 from theano.tensor.nnet import conv
 INF = 1e10
 b3tensor = T.TensorType(dtype = theano.config.floatX, broadcastable = [])
+
+def max_pool(bc01, pool_shape, pool_stride, image_shape):
+    """
+    Theano's max pooling op only supports pool_stride = pool_shape
+    so here we have a graph that does max pooling with strides
+
+    Parameters
+    ----------
+    bc01 : theano tensor
+        minibatch in format (batch size, channels, rows, cols)
+    pool_shape : tuple
+        shape of the pool region (rows, cols)
+    pool_stride : tuple
+        strides between pooling regions (row stride, col stride)
+    image_shape : tuple
+        avoid doing some of the arithmetic in theano
+
+    Returns
+    -------
+    pooled : theano tensor
+        The output of pooling applied to `bc01`
+
+    See Also
+    --------
+    max_pool_c01b : Same functionality but with ('c', 0, 1, 'b') axes
+    sandbox.cuda_convnet.pool.max_pool_c01b : Same functionality as
+        `max_pool_c01b` but GPU-only and considerably faster.
+    mean_pool : Mean pooling instead of max pooling
+    """
+    mx = None
+    r, c = image_shape
+    pr, pc = pool_shape
+    rs, cs = pool_stride
+
+    assert pr <= r
+    assert pc <= c
+
+    name = bc01.name
+    if name is None:
+        name = 'anon_bc01'
+
+    if pool_shape == pool_stride:
+        mx = max_pool_2d(bc01, pool_shape, False)
+        mx.name = 'max_pool('+name+')'
+        return mx
+
+    # Compute index in pooled space of last needed pool
+    # (needed = each input pixel must appear in at least one pool)
+    def last_pool(im_shp, p_shp, p_strd):
+        rval = int(np.ceil(float(im_shp - p_shp) / p_strd))
+        assert p_strd * rval + p_shp >= im_shp
+        assert p_strd * (rval - 1) + p_shp < im_shp
+        return rval
+    # Compute starting row of the last pool
+    last_pool_r = last_pool(image_shape[0],
+                            pool_shape[0],
+                            pool_stride[0]) * pool_stride[0]
+    # Compute number of rows needed in image for all indexes to work out
+    required_r = last_pool_r + pr
+
+    last_pool_c = last_pool(image_shape[1],
+                            pool_shape[1],
+                            pool_stride[1]) * pool_stride[1]
+    required_c = last_pool_c + pc
+
+    for bc01v in get_debug_values(bc01):
+        assert not np.any(np.isinf(bc01v))
+        assert bc01v.shape[2] == image_shape[0]
+        assert bc01v.shape[3] == image_shape[1]
+
+    wide_infinity = T.alloc(T.constant(-np.inf, dtype=config.floatX),
+                            bc01.shape[0],
+                            bc01.shape[1],
+                            required_r,
+                            required_c)
+
+    bc01 = T.set_subtensor(wide_infinity[:, :, 0:r, 0:c], bc01)
+    bc01.name = 'infinite_padded_' + name
+
+    for row_within_pool in xrange(pool_shape[0]):
+        row_stop = last_pool_r + row_within_pool + 1
+        for col_within_pool in xrange(pool_shape[1]):
+            col_stop = last_pool_c + col_within_pool + 1
+            cur = bc01[:,
+                       :,
+                       row_within_pool:row_stop:rs,
+                       col_within_pool:col_stop:cs]
+            cur.name = ('max_pool_cur_' + bc01.name + '_' +
+                        str(row_within_pool) + '_' + str(col_within_pool))
+            if mx is None:
+                mx = cur
+            else:
+                mx = T.maximum(mx, cur)
+                mx.name = ('max_pool_mx_' + bc01.name + '_' +
+                           str(row_within_pool) + '_' + str(col_within_pool))
+
+    mx.name = 'max_pool('+name+')'
+
+    for mxv in get_debug_values(mx):
+        assert not np.any(np.isnan(mxv))
+        assert not np.any(np.isinf(mxv))
+
+    return mx
+
 
 def dtypeX(val):
     return val + 0.0
