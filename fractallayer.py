@@ -265,10 +265,10 @@ class DestacklayerFractal(Layer):
         self.output = T.alloc(dtypeX(0.0), *self.output_shape)
         print self.output_shape
 
-        c00 = self.input[:,0:stacksamplelayer.one_channel[1]]
-        c01 = self.input[:,stacksamplelayer.one_channel[1]:stacksamplelayer.one_channel[1]*2]
-        c10 = self.input[:,stacksamplelayer.one_channel[1]*2:stacksamplelayer.one_channel[1]*3]
-        c11 = self.input[:,stacksamplelayer.one_channel[1]*3:stacksamplelayer.one_channel[1]*4]
+        c00 = self.input[:,0:stacksamplelayer.input_shape[1]]
+        c01 = self.input[:,stacksamplelayer.input_shape[1]:stacksamplelayer.input_shape[1]*2]
+        c10 = self.input[:,stacksamplelayer.input_shape[1]*2:stacksamplelayer.input_shape[1]*3]
+        c11 = self.input[:,stacksamplelayer.input_shape[1]*3:stacksamplelayer.input_shape[1]*4]
 
         if (stacksamplelayer.input_shape[2]&1)==0:
             self.output = T.set_subtensor(self.output[:,:,::2,::2], c00)
