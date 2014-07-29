@@ -8,7 +8,6 @@ from theano import config
 from theano.sandbox.neighbours import images2neibs
 from layerbase import Layer, Param, VisLayer, LayerbasedDropOut, VisSamerank
 from theano.tensor.nnet import conv
-from theano.tensor.signal.downsample import max_pool_2d
 INF = 1e10
 b3tensor = T.TensorType(dtype = theano.config.floatX, broadcastable = [])
 
@@ -155,6 +154,11 @@ class StacksampleFractal(Layer):
         self.output = joined
         self.output_shape = input_shape[0]*4, self.one_channel[1], self.one_channel[2], self.one_channel[3]
 
+class SymbolStacksampleFractal(StacksampleFractal):
+    def __init__(self,input_shape):
+        self.input_shape = input_shape
+        self.one_channel = input_shape[0], input_shape[1], (input_shape[2]+1)/2, (input_shape[3]+1)/2
+
 class DestacksampleFractal(Layer):
 
     def __init__(self, input, stacksamplelayer, input_shape = None):
@@ -180,6 +184,91 @@ class DestacksampleFractal(Layer):
         c01 = self.input[stacksamplelayer.one_channel[0]:stacksamplelayer.one_channel[0]*2]
         c10 = self.input[stacksamplelayer.one_channel[0]*2:stacksamplelayer.one_channel[0]*3]
         c11 = self.input[stacksamplelayer.one_channel[0]*3:stacksamplelayer.one_channel[0]*4]
+
+        if (stacksamplelayer.input_shape[2]&1)==0:
+            self.output = T.set_subtensor(self.output[:,:,::2,::2], c00)
+            self.output = T.set_subtensor(self.output[:,:,::2,1::2], c01)
+            self.output = T.set_subtensor(self.output[:,:,1::2,::2], c10)
+            self.output = T.set_subtensor(self.output[:,:,1::2,1::2], c11)
+        else:
+            self.output = T.set_subtensor(self.output[:,:,::2,::2], c00)
+            self.output = T.set_subtensor(self.output[:,:,::2,1::2], c01[:,:,:,:-1])
+            self.output = T.set_subtensor(self.output[:,:,1::2,::2], c10[:,:,:-1,:])
+            self.output = T.set_subtensor(self.output[:,:,1::2,1::2], c11[:,:,:-1,:-1])
+
+class StacklayerFractal(Layer):
+    
+    def __init__(self, input, input_shape = None, feedval = 0.0):
+        if isinstance(input, Layer):
+            self.input = input.output
+            Layer.linkstruct[input].append(self)
+            if input_shape == None:
+                input_shape = input.output_shape
+        else:
+            self.input = input
+        self.input_shape = input_shape
+
+        #Only square image allowed
+        assert input_shape[2]==input_shape[3]
+
+        #Extend one pixel at each direction
+        shapeext = input_shape[0], input_shape[1], input_shape[2]+2, input_shape[3]+2
+        inputext = T.alloc(dtypeX(-INF), *shapeext)
+
+        inputext = T.set_subtensor(inputext[:,:,1:input_shape[2]+1,1:input_shape[3]+1], self.input)
+        
+        output_cmb = max_pool(inputext, (3,3), (1,1), shapeext[2:])
+        self.output_cmb = output_cmb
+        #Separate output to 4 channels
+        c00 = output_cmb[:,:,::2,::2]
+        c01 = output_cmb[:,:,::2,1::2]
+        c10 = output_cmb[:,:,1::2,::2]
+        c11 = output_cmb[:,:,1::2,1::2]
+        self.one_channel = input_shape[0], input_shape[1], (input_shape[2]+1)/2, (input_shape[3]+1)/2
+
+        #Combine, 2 conditions: even/odd
+        if (input_shape[2]&1)==0:
+            joined = T.concatenate([c00,c01,c10,c11], axis=1)
+        else:
+            joined = T.alloc(dtypeX(feedval), *((input_shape[0]*4,)+self.one_channel[1:4]))
+            joined = T.set_subtensor(joined[:,0:self.one_channel[1],:,:], c00)
+            joined = T.set_subtensor(joined[:,self.one_channel[1]:self.one_channel[1]*2,:,:-1], c01)
+            joined = T.set_subtensor(joined[:,self.one_channel[1]*2:self.one_channel[1]*3,:-1,:], c10)
+            joined = T.set_subtensor(joined[:,self.one_channel[1]*3:self.one_channel[1]*4,:-1,:-1], c11)
+
+        self.output = joined
+        self.output_shape = input_shape[0], self.one_channel[1]*4, self.one_channel[2], self.one_channel[3]
+
+class SymbolStacklayerFractal(StacklayerFractal):
+    def __init__(self,input_shape):
+        self.input_shape = input_shape
+        self.one_channel = input_shape[0], input_shape[1]*4, (input_shape[2]+1)/2, (input_shape[3]+1)/2
+
+class DestacklayerFractal(Layer):
+
+    def __init__(self, input, stacksamplelayer, input_shape = None):
+        if isinstance(input, Layer):
+            self.input = input.output
+            Layer.linkstruct[input].append(self)
+            if input_shape == None:
+                input_shape = input.output_shape
+        else:
+            self.input = input
+        self.input_shape = input_shape
+        assert isinstance(stacksamplelayer, StacklayerFractal)
+        
+        #Insert back by shape
+        if (stacksamplelayer.input_shape[2]&1)==0:
+            self.output_shape = stacksamplelayer.input_shape[0], input_shape[1], input_shape[2]*2, input_shape[3]*2
+        else:
+            self.output_shape = stacksamplelayer.input_shape[0], input_shape[1], input_shape[2]*2-1, input_shape[3]*2-1
+        self.output = T.alloc(dtypeX(0.0), *self.output_shape)
+        print self.output_shape
+
+        c00 = self.input[:,0:stacksamplelayer.one_channel[1]]
+        c01 = self.input[:,stacksamplelayer.one_channel[1]:stacksamplelayer.one_channel[1]*2]
+        c10 = self.input[:,stacksamplelayer.one_channel[1]*2:stacksamplelayer.one_channel[1]*3]
+        c11 = self.input[:,stacksamplelayer.one_channel[1]*3:stacksamplelayer.one_channel[1]*4]
 
         if (stacksamplelayer.input_shape[2]&1)==0:
             self.output = T.set_subtensor(self.output[:,:,::2,::2], c00)
