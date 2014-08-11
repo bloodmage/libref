@@ -30,7 +30,7 @@ class learningspeed:
             else:
                 coeff.append(1)
             if D:
-                layerrate = (self.layertarget*fan_out/fan_in) / T.sum(abs(momentums[pid])) * self.layerstr + self.baserate * (1-self.layerstr) * self.basedynamic
+                layerrate = (self.layertarget*fan_out/fan_in) / (T.sum(abs(momentums[pid]))+1e-10) * self.layerstr + self.baserate * (1-self.layerstr) * self.basedynamic
                 coeff.append(layerrate)
                 outs.append(momentums[pid]*layerrate)
                 pid+=1
