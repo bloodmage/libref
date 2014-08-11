@@ -10,7 +10,7 @@ class learningspeed:
         self.basedynamic = basedynamic
 
     def fixspeed(self,model,momentums):
-        paramlayers = model.paramslayers()
+        paramlayers = model.paramlayers()
         coeff = []
         outs = []
         pid = 0
