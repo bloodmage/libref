@@ -6,7 +6,7 @@ whiteconfs = {}
 
 def white(arr4d, cachename):
     if os.path.exists(cachename+'.npz'):
-        cache = np.load(cachename)
+        cache = np.load(cachename+'.npz')
         subterm = cache['sub']
         divterm = cache['div']
         fftterm = cache['fft']
