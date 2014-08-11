@@ -17,7 +17,7 @@ def white(arr4d, cachename):
         arr4d = fft.ifft2(farr4d)
         return arr4d
 
-    subterm = np.mean(arr4d,(1,2),keepdims = True)
+    subterm = np.mean(arr4d,0,keepdims = True)
     divterm = 1.0/(arr4d.std(axis=(2,3),keepdims=True)+1e-10)
     arr4d = (arr4d - subterm) * divterm
     farr4d = fft.fft2(arr4d)
@@ -34,7 +34,6 @@ def unwhite(arr4d, cachename):
     farr4d = fft.fft2(arr4d)
     farr4d = farr4d / fftterm
     arr4d = np.real(fft.ifft2(farr4d))
-    arr4d = arr4d / divterm + subterm
     return arr4d
 
 if __name__=="__main__":
