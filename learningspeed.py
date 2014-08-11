@@ -38,7 +38,7 @@ class learningspeed:
             for i in paramlayer.params[D:]:
                 outs.append(momentums[pid]*self.baserate)
                 pid+=1
-        return outs,coeff
+        return outs,T.stacklists(coeff)
 
 if __name__=="__main__":
     pass
