@@ -303,8 +303,7 @@ class FullConnectLayer(Layer, Param, VisLayer):
         self.b = theano.shared(value=b_values, name='bflat_%s'%inc[0])
         
         self.output = T.dot(self.input, self.W) + self.b.dimshuffle('x', 0)
-        if Nonlinear:
-            self.output = T.tanh(self.output)
+        self.output = nonlinear(self.output, Nonlinear)
         if reshape:
             self.output = T.reshape(self.output, reshape)
             self.output_shape = reshape
