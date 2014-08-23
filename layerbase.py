@@ -263,6 +263,21 @@ class Maxpool2D1DLayer(Layer,VisSamerank):
         self.output = T.max(inputflat, axis=2)
         self.output_shape = (image_shape[0],image_shape[1])
 
+class Reshape2D1DLayer(Layer, VisSamerank):
+
+    def __init__(self, input, image_shape = None):
+
+        if isinstance(input, Layer):
+            self.input = input.output
+            Layer.linkstruct[input].append(self)
+            if image_shape==None:
+                image_shape = input.output_shape
+        else:
+            self.input = input
+        
+        self.output = T.reshape(self.input,(image_shape[0],image_shape[1]*image_shape[2]*image_shape[3]))
+        self.output_shape = (image_shape[0],image_shape[1]*image_shape[2]*image_shape[3])
+
 class FullConnectLayer(Layer, Param, VisLayer):
 
     def __init__(self, rng, input, hidden_size, Nonlinear = True, reshape = None, input_shape = None, inc = [0]):
