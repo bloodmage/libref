@@ -263,6 +263,22 @@ class Maxpool2D1DLayer(Layer,VisSamerank):
         self.output = T.max(inputflat, axis=2)
         self.output_shape = (image_shape[0],image_shape[1])
 
+class Meanpool2D1DLayer(Layer,VisSamerank):
+
+    def __init__(self, input, image_shape = None):
+
+        if isinstance(input, Layer):
+            self.input = input.output
+            Layer.linkstruct[input].append(self)
+            if image_shape==None:
+                image_shape = input.output_shape
+        else:
+            self.input = input
+        
+        inputflat = T.reshape(self.input,(image_shape[0],image_shape[1],image_shape[2]*image_shape[3]))
+        self.output = T.mean(inputflat, axis=2)
+        self.output_shape = (image_shape[0],image_shape[1])
+
 class Reshape2D1DLayer(Layer, VisSamerank):
 
     def __init__(self, input, image_shape = None):
@@ -277,6 +293,14 @@ class Reshape2D1DLayer(Layer, VisSamerank):
         
         self.output = T.reshape(self.input,(image_shape[0],image_shape[1]*image_shape[2]*image_shape[3]))
         self.output_shape = (image_shape[0],image_shape[1]*image_shape[2]*image_shape[3])
+
+class FlatSoftmaxLayer(Layer, VisLayer, VisSamerank):
+
+    def __init__(self,input):
+        self.output_shape = input.output_shape
+        Layer.linkstruct[input].append(self)
+        assert len(input.output_shape)==2
+        self.output = nnet.softmax(input.output)
 
 class FullConnectLayer(Layer, Param, VisLayer):
 
@@ -359,6 +383,15 @@ class MaskedHengeLoss(Layer, VisLayer, LossLayer):
         mask = T.sgn(targets)
         antargets=T.switch(T.gt(targets,0),targets,1+targets)
         self.loss = self.hengeloss = T.sum((mask*(antargets-input.output)).clip(0,1e10))
+        self.output = response.resp
+        self.output_shape = response.resp_shape
+
+class CrossEntropyLoss(Layer, VisLayer, LossLayer):
+
+    def __init__(self,input,response):
+        Layer.linkstruct[input].append(self)
+        targets = response.resp
+        self.loss = nnet.binary_crossentropy(input.output,targets).mean()
         self.output = response.resp
         self.output_shape = response.resp_shape
 
