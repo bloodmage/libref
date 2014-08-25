@@ -12,6 +12,35 @@ except:
 import os
 import math
 
+THEANO_CONV = 0
+FFT_CONV = 1
+
+convmode = THEANO_CONV
+
+def setconvmode(mode):
+    global convmode
+    convmode = mode
+
+def conv2d(input,filters,image_shape=None,filter_shape=None,border_mode='valid'):
+    global convmode
+    if convmode==THEANO_CONV:
+        if border_mode=='same':
+            allocspace = T.alloc(0.0, image_shape[0], image_shape[1], image_shape[2]+filter_shape[2]-1, image_shape[3]+filter_shape[3]-1)
+            allocspace = T.set_subtensor(allocspace[:,:,filter_shape[2]/2:filter_shape[2]/2+image_shape[2],filter_shape[3]/2:filter_shape[3]/2+image_shape[3]],input)
+        else:
+            allocspace = input
+        return conv.conv2d(allocspace,filters,image_shape=image_shape,filter_shape=filter_shape,border_mode=border_mode)
+    elif convmode==FFT_CONV:
+        if border_mode=='same':
+            allocspace = T.alloc(0.0, image_shape[0], image_shape[1], image_shape[2]+filter_shape[2]-1, image_shape[3]+filter_shape[3]-1)
+            allocspace = T.set_subtensor(allocspace[:,:,filter_shape[2]/2:filter_shape[2]/2+image_shape[2],filter_shape[3]/2:filter_shape[3]/2+image_shape[3]],input)
+        elif border_mode=='full':
+            allocspace = T.alloc(0.0, image_shape[0], image_shape[1], image_shape[2]+filter_shape[2]*2-2, image_shape[3]+filter_shape[3]*2-2)
+            allocspace = T.set_subtensor(allocspace[:,:,filter_shape[2]-1:filter_shape[2]-1+image_shape[2],filter_shape[3]-1:filter_shape[3]-1+image_shape[3]],input)
+        else:
+            allocspace = input
+        import fftconv
+        return fftconv.conv2d_fft(allocspace,filters,image_shape=image_shape,filter_shape=filter_shape,border_mode=border_mode)
 class safefile:
     def __init__(self,name):
         self.name = name
@@ -97,7 +126,7 @@ class ConvLayer(Layer, Param, VisLayer):
         b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
         self.b = theano.shared(value=b_values, name='b_%s'%inc[0])
 
-        conv_out = conv.conv2d(self.input, self.W,
+        conv_out = conv2d(self.input, self.W,
                 filter_shape=filter_shape, image_shape=image_shape, border_mode="valid" if isShrink else "full")
         
         self.output = nonlinear(conv_out + self.b.dimshuffle('x', 0, 'x', 'x'), Nonlinear)
@@ -138,7 +167,7 @@ class ConvMaxoutLayer(Layer, Param, VisLayer):
         b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
         self.b = theano.shared(value=b_values, name='b_%s'%inc[0])
 
-        conv_out = conv.conv2d(self.input, self.W,
+        conv_out = conv2d(self.input, self.W,
                 filter_shape=filter_shape, image_shape=image_shape, border_mode="valid" if isShrink else "full")
 
         self.output_shape = (image_shape[0], filter_shape[0]/maxout_size,
@@ -212,7 +241,7 @@ class ConvKeepLayer(Layer, Param, VisLayer):
         b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
         self.b = theano.shared(value=b_values, name='b_%s'%inc[0])
 
-        conv_out = conv.conv2d(self.input, self.W,
+        conv_out = conv2d(self.input, self.W,
                 filter_shape=filter_shape, image_shape=image_shape, border_mode="full")
         #Get middle area
         conv_out = conv_out[:,:,med[0]:-med[0],med[1]:-med[1]]
