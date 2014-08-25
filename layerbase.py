@@ -47,7 +47,8 @@ class safefile:
         elif self.mode == 1:
             self.f.close()
             if not os.path.exists(self.name+'.tmp'):
-                raise Exception("File not generated")
+                print ("Warning: File not generated")
+                return
             try: os.unlink(self.name)
             except: pass
             os.rename(self.name+'.tmp', self.name)
