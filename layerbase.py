@@ -40,7 +40,7 @@ def conv2d(input,filters,image_shape=None,filter_shape=None,border_mode='valid')
         else:
             allocspace = input
         import fftconv
-        return fftconv.conv2d_fft(allocspace,filters,image_shape=image_shape,filter_shape=filter_shape)
+        return fftconv.conv2d_fft(allocspace,filters,image_shape=image_shape,filter_shape=filter_shape,border_mode=border_mode)
 class safefile:
     def __init__(self,name):
         self.name = name
