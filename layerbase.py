@@ -105,7 +105,7 @@ def nonlinear(input, nonlinear = 'tanh'):
 
 class ConvLayer(Layer, Param, VisLayer):
 
-    def __init__(self, rng, input, filter_shape, image_shape = None, isShrink = True, Nonlinear = "tanh", zeroone = False, inc=[0]):
+    def __init__(self, rng, input, filter_shape, image_shape = None, isShrink = True, Nonlinear = "tanh", zeroone = False, inc=[0], shareLayer = None):
 
         if isinstance(input, Layer):
             self.input = input.output 
@@ -117,14 +117,19 @@ class ConvLayer(Layer, Param, VisLayer):
         assert image_shape[1] == filter_shape[1]
 
         fan_in = np.prod(filter_shape[1:])
-        W_values = np.asarray(rng.uniform(
-              low=-np.sqrt(0.5/fan_in),
-              high=np.sqrt(0.5/fan_in),
-              size=filter_shape), dtype=theano.config.floatX)
-        self.W = theano.shared(value=W_values, name='W_%s'%inc[0])
+        
+        if shareLayer!=None:
+            self.W = shareLayer.W
+            self.b = shareLayer.b
+        else:
+            W_values = np.asarray(rng.uniform(
+                  low=-np.sqrt(0.5/fan_in),
+                  high=np.sqrt(0.5/fan_in),
+                  size=filter_shape), dtype=theano.config.floatX)
+            self.W = theano.shared(value=W_values, name='W_%s'%inc[0])
 
-        b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
-        self.b = theano.shared(value=b_values, name='b_%s'%inc[0])
+            b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
+            self.b = theano.shared(value=b_values, name='b_%s'%inc[0])
 
         conv_out = conv2d(self.input, self.W,
                 filter_shape=filter_shape, image_shape=image_shape, border_mode="valid" if isShrink else "full")
@@ -137,13 +142,16 @@ class ConvLayer(Layer, Param, VisLayer):
                 image_shape[2]-filter_shape[2]+1 if isShrink else image_shape[2]+filter_shape[2]-1,
                 image_shape[3]-filter_shape[3]+1 if isShrink else image_shape[3]+filter_shape[3]-1)
         
-        self.params = [self.W, self.b]
+        if shareLayer!=None:
+            self.params = [self.W, self.b]
+        else:
+            self.params = []
 
         inc[0] = inc[0]+1
     
 class ConvMaxoutLayer(Layer, Param, VisLayer):
 
-    def __init__(self, rng, input, filter_shape, image_shape = None, isShrink = True, maxout_size = 5, inc=[0]):
+    def __init__(self, rng, input, filter_shape, image_shape = None, isShrink = True, maxout_size = 5, inc=[0], shareLayer = None):
 
         if isinstance(input, Layer):
             self.input = input.output
@@ -158,14 +166,18 @@ class ConvMaxoutLayer(Layer, Param, VisLayer):
         #assert filter_shape[0] % maxout_size == 0
 
         fan_in = np.prod(filter_shape[1:])
-        W_values = np.asarray(rng.uniform(
-              low=-np.sqrt(0.5/fan_in),
-              high=np.sqrt(0.5/fan_in),
-              size=filter_shape), dtype=theano.config.floatX)
-        self.W = theano.shared(value=W_values, name='W_%s'%inc[0])
+        if shareLayer!=None:
+            self.W = shareLayer.W
+            self.b = shareLayer.b
+        else:
+            W_values = np.asarray(rng.uniform(
+                  low=-np.sqrt(0.5/fan_in),
+                  high=np.sqrt(0.5/fan_in),
+                  size=filter_shape), dtype=theano.config.floatX)
+            self.W = theano.shared(value=W_values, name='W_%s'%inc[0])
 
-        b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
-        self.b = theano.shared(value=b_values, name='b_%s'%inc[0])
+            b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
+            self.b = theano.shared(value=b_values, name='b_%s'%inc[0])
 
         conv_out = conv2d(self.input, self.W,
                 filter_shape=filter_shape, image_shape=image_shape, border_mode="valid" if isShrink else "full")
@@ -176,13 +188,16 @@ class ConvMaxoutLayer(Layer, Param, VisLayer):
         
         self.output = T.max(T.reshape(conv_out + self.b.dimshuffle('x', 0, 'x', 'x'), (self.output_shape[0], self.output_shape[1], maxout_size, self.output_shape[2], self.output_shape[3])), axis=2)
 
-        self.params = [self.W, self.b]
+        if shareLayer!=None:
+            self.params = [self.W, self.b]
+        else:
+            self.params = []
 
         inc[0] = inc[0]+1
 
 class MLPConvLayer(Layer, Param, VisLayer):
 
-    def __init__(self, rng, input, hidden_size, image_shape = None, inc = [0]):
+    def __init__(self, rng, input, hidden_size, image_shape = None, inc = [0], shareLayer = None):
 
         if isinstance(input, Layer):
             self.input = input.output
@@ -195,14 +210,19 @@ class MLPConvLayer(Layer, Param, VisLayer):
         #Dimshuffle to make a dotable plane
         filter_shape = (hidden_size, image_shape[1])
         fan_in = image_shape[1]
-        W_values = np.asarray(rng.uniform(
-            low=-np.sqrt(0.5/fan_in),
-            high=np.sqrt(0.5/fan_in),
-            size=filter_shape), dtype=theano.config.floatX)
-        self.W = theano.shared(value=W_values, name='Wmlpconv_%s'%inc[0])
+        
+        if shareLayer!=None:
+            self.W = shareLayer.W
+            self.b = shareLayer.b
+        else:
+            W_values = np.asarray(rng.uniform(
+                low=-np.sqrt(0.5/fan_in),
+                high=np.sqrt(0.5/fan_in),
+                size=filter_shape), dtype=theano.config.floatX)
+            self.W = theano.shared(value=W_values, name='Wmlpconv_%s'%inc[0])
 
-        b_values = np.zeros((hidden_size,), dtype=theano.config.floatX)
-        self.b = theano.shared(value=b_values, name='bmlpconv_%s'%inc[0])
+            b_values = np.zeros((hidden_size,), dtype=theano.config.floatX)
+            self.b = theano.shared(value=b_values, name='bmlpconv_%s'%inc[0])
 
         plane = self.input.dimshuffle(1, 0, 2, 3).reshape((image_shape[1], image_shape[0]*image_shape[2]*image_shape[3]))
         planeout = T.dot(self.W, plane) + self.b.dimshuffle(0, 'x')
@@ -211,13 +231,16 @@ class MLPConvLayer(Layer, Param, VisLayer):
         #Make a graphic size output
         self.output = planeout.reshape((hidden_size, image_shape[0], image_shape[2], image_shape[3])).dimshuffle(1, 0, 2, 3)
         self.output_shape = (image_shape[0], hidden_size, image_shape[2], image_shape[3])
-
-        self.params = [self.W, self.b]
+        
+        if shareLayer!=None:
+            self.params = []
+        else:
+            self.params = [self.W, self.b]
 
         inc[0] = inc[0]+1
 
 class ConvKeepLayer(Layer, Param, VisLayer):
-    def __init__(self, rng, input, filter_shape, image_shape = None, Nonlinear = "tanh", zeroone = False, inc=[0], dropout = False, dropoutrnd = None):
+    def __init__(self, rng, input, filter_shape, image_shape = None, Nonlinear = "tanh", zeroone = False, inc=[0], dropout = False, dropoutrnd = None, shareLayer = None):
 
         if isinstance(input, Layer):
             self.input = input.output 
@@ -232,14 +255,19 @@ class ConvKeepLayer(Layer, Param, VisLayer):
         med = (filter_shape[2]-1)/2,(filter_shape[3]-1)/2
 
         fan_in = np.prod(filter_shape[1:])
-        W_values = np.asarray(rng.uniform(
-              low=-np.sqrt(0.5/fan_in),
-              high=np.sqrt(0.5/fan_in),
-              size=filter_shape), dtype=theano.config.floatX)
-        self.W = theano.shared(value=W_values, name='W_%s'%inc[0])
 
-        b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
-        self.b = theano.shared(value=b_values, name='b_%s'%inc[0])
+        if shareLayer!=None:
+            self.W = shareLayer.W
+            self.b = shareLayer.b
+        else:
+            W_values = np.asarray(rng.uniform(
+                  low=-np.sqrt(0.5/fan_in),
+                  high=np.sqrt(0.5/fan_in),
+                  size=filter_shape), dtype=theano.config.floatX)
+            self.W = theano.shared(value=W_values, name='W_%s'%inc[0])
+
+            b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
+            self.b = theano.shared(value=b_values, name='b_%s'%inc[0])
 
         conv_out = conv2d(self.input, self.W,
                 filter_shape=filter_shape, image_shape=image_shape, border_mode="full")
@@ -255,8 +283,11 @@ class ConvKeepLayer(Layer, Param, VisLayer):
         if not (dropout is False): #Embed a layerwise dropout layer
             self.output = LayerbasedDropOut(self, dropoutrnd, dropout).output
         
-        self.params = [self.W, self.b]
-
+        if shareLayer!=None:
+            self.params = []
+        else:
+            self.params = [self.W, self.b]
+    
         inc[0] = inc[0]+1
 
 class Maxpool2DLayer(Layer,VisSamerank):
@@ -334,7 +365,7 @@ class FlatSoftmaxLayer(Layer, VisLayer, VisSamerank):
 
 class FullConnectLayer(Layer, Param, VisLayer):
 
-    def __init__(self, rng, input, hidden_size, Nonlinear = True, reshape = None, input_shape = None, inc = [0]):
+    def __init__(self, rng, input, hidden_size, Nonlinear = True, reshape = None, input_shape = None, inc = [0], shareLayer = None):
 
         if isinstance(input, Layer):
             self.input = input.output
@@ -347,14 +378,18 @@ class FullConnectLayer(Layer, Param, VisLayer):
         fan_in = input_shape[1]
         filter_shape = (input_shape[1], hidden_size)
 
-        W_values = np.asarray(rng.uniform(
-              low=-np.sqrt(0.5/fan_in),
-              high=np.sqrt(0.5/fan_in),
-              size=filter_shape), dtype=theano.config.floatX)
-        self.W = theano.shared(value=W_values, name='Wflat_%s'%inc[0])
+        if shareLayer!=None:
+            self.W = shareLayer.W
+            self.b = shareLayer.b
+        else:
+            W_values = np.asarray(rng.uniform(
+                  low=-np.sqrt(0.5/fan_in),
+                  high=np.sqrt(0.5/fan_in),
+                  size=filter_shape), dtype=theano.config.floatX)
+            self.W = theano.shared(value=W_values, name='Wflat_%s'%inc[0])
 
-        b_values = np.zeros((hidden_size,), dtype=theano.config.floatX)
-        self.b = theano.shared(value=b_values, name='bflat_%s'%inc[0])
+            b_values = np.zeros((hidden_size,), dtype=theano.config.floatX)
+            self.b = theano.shared(value=b_values, name='bflat_%s'%inc[0])
         
         self.output = T.dot(self.input, self.W) + self.b.dimshuffle('x', 0)
         self.output = nonlinear(self.output, Nonlinear)
@@ -365,7 +400,10 @@ class FullConnectLayer(Layer, Param, VisLayer):
             self.output_shape = (input_shape[0], hidden_size)
         self.reshape = reshape
 
-        self.params = [self.W, self.b]
+        if shareLayer == None:
+            self.params = [self.W, self.b]
+        else:
+            self.params = []
         inc[0] += 1
 
 class DataLayer(Layer, VisLayer):
