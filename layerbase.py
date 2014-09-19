@@ -363,6 +363,14 @@ class FlatSoftmaxLayer(Layer, VisLayer, VisSamerank):
         assert len(input.output_shape)==2
         self.output = nnet.softmax(input.output)
 
+class SoftmaxLayer(Layer, VisLayer, VisSamerank):
+
+    def __init__(self,input):
+        self.output_shape = input.output_shape
+        Layer.linkstruct[input].append(self)
+        assert len(input.output_shape)==4
+        self.output = nnet.softmax(input.output)
+
 class FullConnectLayer(Layer, Param, VisLayer):
 
     def __init__(self, rng, input, hidden_size, Nonlinear = True, reshape = None, input_shape = None, inc = [0], shareLayer = None):
