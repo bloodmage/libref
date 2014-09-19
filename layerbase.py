@@ -371,7 +371,7 @@ class SoftmaxLayer(Layer, VisLayer, VisSamerank):
         assert len(input.output_shape)==4
 
         x = input.output
-        e_x = exp(x - x.max(axis=1, keepdims=True))
+        e_x = T.exp(x - x.max(axis=1, keepdims=True))
         out = e_x / e_x.sum(axis=1, keepdims=True)
         
         return out
