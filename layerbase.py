@@ -369,7 +369,12 @@ class SoftmaxLayer(Layer, VisLayer, VisSamerank):
         self.output_shape = input.output_shape
         Layer.linkstruct[input].append(self)
         assert len(input.output_shape)==4
-        self.output = nnet.softmax(input.output)
+
+        x = input.output
+        e_x = exp(x - x.max(axis=1, keepdims=True))
+        out = e_x / e_x.sum(axis=1, keepdims=True)
+        
+        return out
 
 class FullConnectLayer(Layer, Param, VisLayer):
 
