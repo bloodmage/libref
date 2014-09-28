@@ -296,6 +296,70 @@ class ConvKeepLayer(Layer, Param, VisLayer):
     
         inc[0] = inc[0]+1
 
+class LRN_AcrossMap(Layer,VisSamerank):
+    
+    def __init__(self, input, across, alpha = 1.0, beta = 1.0):
+        assert across%2==1
+        self.output_shape = input.output_shape
+        kernel = np.zeros((self.output_shape[1],self.output_shape[1],1,1),theano.config.floatX)
+        for i in range(self.output_shape[1]):
+            kernel[i,max(0,i-across/2):min(self.output_shape[1],i+across/2+1)]=1.0
+        self.k = theano.shared(value=kernel,name="LRN_kern_%s_%s"%(self.output_shape[1],across))
+        
+        osqr = input.output*input.output
+        lpart = conv2d(osqr, self.k, filter_shape = kernel.shape, image_shape=input.output_shape)*alpha / across + 1
+        if beta!=1.0:
+            lpart = lpart ** beta
+        self.output = input.output / lpart
+
+class LRN_InMap(Layer, VisSamerank):
+    
+    def __init__(self, input, arange, alpha = 1.0, beta = 1.0):
+        assert arange%2==1
+        self.output_shape = input.output_shape
+        self.k = T.alloc(1.0, (1,1,arange,arange))
+
+        flatshape = (input.output_shape[0]*input.output_shape[1],1,input.output_shape[2],input.output_shape[3])
+        self.flatinput = T.reshape(input.output,flatshape)
+        self.flatinput = self.flatinput*self.flatinput
+
+        conv_out = conv2d(self.flatinput, self.k, filter_shape=(1,1,arange,arange), image_shape=flatshape, border_mode='full')
+        if arange!=1:
+            conv_out = conv_out[:,:,arange/2:-arange/2,arange/2:-arange/2]
+        conv_out = 1+conv_out * alpha / (arange*arange)
+        if beta!=1.0:
+            conv_out = conv_out ** beta
+        lpart = T.reshape(conv_out, input.output_shape)
+        self.output = input.output / lpart
+
+class LRN_VarianceInMap(Layer, VisSamerank):
+
+    def __init__(self, input, arange, alpha = 1.0, beta = 1.0):
+        assert arange%2==1
+        self.output_shape = input.output_shape
+        self.k = T.alloc(1.0, (1,1,arange,arange))
+        from scipy.signal import sepfir2d
+        divplain = np.ones((input.output_shape[2],input.output_shape[3]),theano.config.floatX)
+        divcount = 1.0/sepfir2d(divplain,np.ones(arange,thano.config.floatX),np.ones(arange,theano.config.floatX)).reshape((1,input.output_shape[2],input.output_shape[3]))
+        self.divc = theano.shared(value = divcount, name = "LRN_divc_%s_%s_%s"%(arange,input.output_shape[2],input.output_shape[3]))
+
+        flatshape = (input.output_shape[0]*input.output_shape[1],1,input.output_shape[2],input.output_shape[3])
+        self.flatinput = T.reshape(input.output,flatshape)
+        conv_out = conv2d(self.flatinput, self.k, filter_shape=(1,1,arange,arange), image_shape=flatshape, border_mode='full')
+        if arange!=1:
+            conv_out = conv_out[:,:,arange/2:-arange/2,arange/2:-arange/2]
+        mval = conv_out * self.divc
+        self.flatinput = self.flatinput*self.flatinput
+        conv_out = conv2d(self.flatinput, self.k, filter_shape=(1,1,arange,arange), image_shape=flatshape, border_mode='full')
+        if arange!=1:
+            conv_out = conv_out[:,:,arange/2:-arange/2,arange/2:-arange/2]
+        conv_out = conv_out - mval
+        conv_out = 1+conv_out * alpha / (arange*arange)
+        if beta!=1.0:
+            conv_out = conv_out ** beta
+        lpart = T.reshape(conv_out, input.output_shape)
+        self.output = input.output / lpart        
+
 class Maxpool2DLayer(Layer,VisSamerank):
 
     def __init__(self, input, max_pool_size = (2,2), ignore_border = False, image_shape = None):
