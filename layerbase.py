@@ -307,7 +307,7 @@ class LRN_AcrossMap(Layer,VisSamerank):
         self.k = theano.shared(value=kernel,name="LRN_kern_%s_%s"%(self.output_shape[1],across))
         
         osqr = input.output*input.output
-        lpart = T.dimshuffle(T.reshape(T.dot(T.reshape(T.dimshuffle(osqr,(0,2,3,1)),(self.output_shape[0]*self.output_shape[2]*self.output_shape[3],self.output_shape[1])), self.k),(self.output_shape[0],self.output_shape[2],self.output_shape[3],self.output_shape[1])),(0,3,1,2)) * alpha / across + 1
+        lpart = T.reshape(T.dot(T.reshape(osqr.dimshuffle(0,2,3,1),(self.output_shape[0]*self.output_shape[2]*self.output_shape[3],self.output_shape[1])), self.k),(self.output_shape[0],self.output_shape[2],self.output_shape[3],self.output_shape[1])).dimshuffle(0,3,1,2) * alpha / across + 1
         #lpart = conv2d(osqr, self.k, filter_shape = kernel.shape, image_shape=input.output_shape)*alpha / across + 1
         if beta!=1.0:
             lpart = lpart ** beta
