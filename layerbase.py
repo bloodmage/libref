@@ -301,13 +301,14 @@ class LRN_AcrossMap(Layer,VisSamerank):
     def __init__(self, input, across, alpha = 1.0, beta = 1.0):
         assert across%2==1
         self.output_shape = input.output_shape
-        kernel = np.zeros((self.output_shape[1],self.output_shape[1],1,1),theano.config.floatX)
+        kernel = np.zeros((self.output_shape[1],self.output_shape[1]),theano.config.floatX)
         for i in range(self.output_shape[1]):
-            kernel[i,max(0,i-across/2):min(self.output_shape[1],i+across/2+1)]=1.0
+            kernel[max(0,i-across/2):min(self.output_shape[1],i+across/2+1),i]=1.0
         self.k = theano.shared(value=kernel,name="LRN_kern_%s_%s"%(self.output_shape[1],across))
         
         osqr = input.output*input.output
-        lpart = conv2d(osqr, self.k, filter_shape = kernel.shape, image_shape=input.output_shape)*alpha / across + 1
+        lpart = T.dimshuffle(T.reshape(T.dot(T.reshape(T.dimshuffle(osqr,(0,2,3,1)),(self.output_shape[0]*self.output_shape[2]*self.output_shape[3],self.output_shape[1])), self.k),(self.output_shape[0],self.output_shape[2],self.output_shape[3],self.output_shape[1])),(0,3,1,2)) * alpha / across + 1
+        #lpart = conv2d(osqr, self.k, filter_shape = kernel.shape, image_shape=input.output_shape)*alpha / across + 1
         if beta!=1.0:
             lpart = lpart ** beta
         self.output = input.output / lpart
