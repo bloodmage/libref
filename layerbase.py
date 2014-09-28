@@ -68,19 +68,25 @@ class safefile:
         return self.f
 
     def __exit__(self, type, value, tb):
+        try: self.f.close()
+        except: pass
         if type!=None:
-            try: self.f.close()
-            except: pass
             try: os.unlink(self.name+'.tmp')
             except: pass
         elif self.mode == 1:
-            self.f.close()
             if not os.path.exists(self.name+'.tmp'):
                 print ("Warning: File not generated")
                 return
-            try: os.unlink(self.name)
-            except: pass
-            os.rename(self.name+'.tmp', self.name)
+            try:
+                os.unlink(self.name)
+            except:
+                import traceback
+                traceback.print_exc()
+            try:
+                os.rename(self.name+'.tmp', self.name)
+            except:
+                import traceback
+                traceback.print_exc()
 
 import collections
 class Layer:
@@ -362,6 +368,19 @@ class FlatSoftmaxLayer(Layer, VisLayer, VisSamerank):
         Layer.linkstruct[input].append(self)
         assert len(input.output_shape)==2
         self.output = nnet.softmax(input.output)
+
+class SoftmaxLayer(Layer, VisLayer, VisSamerank):
+
+    def __init__(self,input):
+        self.output_shape = input.output_shape
+        Layer.linkstruct[input].append(self)
+        assert len(input.output_shape)==4
+
+        x = input.output
+        e_x = T.exp(x - x.max(axis=1, keepdims=True))
+        out = e_x / e_x.sum(axis=1, keepdims=True)
+        
+        self.output = out
 
 class FullConnectLayer(Layer, Param, VisLayer):
 
