@@ -109,7 +109,7 @@ def max_pool(bc01, pool_shape, pool_stride, image_shape):
 
 
 def dtypeX(val):
-    return val + 0.0
+    return np.dtype(theano.config.floatX).type(val)
 
 class StacksampleFractal(Layer):
     
