@@ -178,7 +178,7 @@ class DestacksampleFractal(Layer):
         else:
             self.output_shape = stacksamplelayer.input_shape[0], input_shape[1], input_shape[2]*2-1, input_shape[3]*2-1
         self.output = T.alloc(dtypeX(0.0), *self.output_shape)
-        print self.output_shape
+        #print self.output_shape
 
         c00 = self.input[0:stacksamplelayer.one_channel[0]]
         c01 = self.input[stacksamplelayer.one_channel[0]:stacksamplelayer.one_channel[0]*2]
@@ -263,7 +263,7 @@ class DestacklayerFractal(Layer):
         else:
             self.output_shape = input_shape[0], stacksamplelayer.input_shape[1], input_shape[2]*2-1, input_shape[3]*2-1
         self.output = T.alloc(dtypeX(0.0), *self.output_shape)
-        print self.output_shape
+        #print self.output_shape
 
         c00 = self.input[:,0:stacksamplelayer.input_shape[1]]
         c01 = self.input[:,stacksamplelayer.input_shape[1]:stacksamplelayer.input_shape[1]*2]

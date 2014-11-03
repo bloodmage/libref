@@ -252,7 +252,7 @@ class ShrinkshapeFractal(Layer):
         
         self.output = max_pool(inputext, (3,3), (2,2), shapeext[2:])
         self.output_shape = input_shape[0], input_shape[1], (input_shape[2]+1)/2, (input_shape[3]+1)/2
-        print self.output_shape
+        #print self.output_shape
 
 class ExpandshapeFractal(Layer):
 
@@ -274,7 +274,7 @@ class ExpandshapeFractal(Layer):
             cali=0
 
         self.output_shape = input_shape[0], input_shape[1]+cali, shrinksamplelayer.input_shape[2], shrinksamplelayer.input_shape[3]
-        print self.output_shape
+        #print self.output_shape
 
         output = T.alloc(dtypeX(0.0), *self.output_shape)
         
