@@ -11,6 +11,7 @@ except:
     print "THEANO ERROR, THEANO-Based functions are disabled"
 import os
 import math
+import shutil
 
 THEANO_CONV = 0
 FFT_CONV = 1
@@ -53,17 +54,27 @@ class safefile:
         else:
             try: os.unlink(self.name+'.tmp')
             except: pass
+        #Directory based batch store
+        if not os.path.isdir(self.name):
+            os.rename(self.name, self.name+'.tmp')
+            os.mkdir(self.name)
+            shutil.copyfile(self.name+'.tmp', os.path.join(self.name, self.name))
+        #Find latest idnumber
+        idnames = [int(i[i.rfind('_')+1:]) for i in os.listdir(self.name) if i.rfind('_')!=-1]
+        idnames.append(0)
+        largestnum = max(idnames)+1
+        self.largestnum = largestnum
         return self
 
     def __nonzero__(self):
         return os.path.exists(self.name)
     
     def rb(self):
-        self.f=file(self.name,'rb')
+        self.f=file(os.path.join(self.name,self.name),'rb')
         return self.f
 
     def wb(self):
-        self.f=file(self.name+'.tmp', 'wb')
+        self.f=file(os.path.join(self.name,self.name+'.tmp'),'wb')
         self.mode = 1
         return self.f
 
@@ -71,22 +82,19 @@ class safefile:
         try: self.f.close()
         except: pass
         if type!=None:
-            try: os.unlink(self.name+'.tmp')
+            try: os.unlink(os.path.join(self.name,self.name+'.tmp'))
             except: pass
         elif self.mode == 1:
-            if not os.path.exists(self.name+'.tmp'):
+            if not os.path.exists(os.path.join(self.name,self.name+'.tmp')):
                 print ("Warning: File not generated")
                 return
-            try:
-                os.unlink(self.name)
-            except:
-                import traceback
-                traceback.print_exc()
-            try:
-                os.rename(self.name+'.tmp', self.name)
-            except:
-                import traceback
-                traceback.print_exc()
+            os.rename(os.path.join(self.name,self.name),os.path.join(self.name,self.name+'_'+str(self.largestnum))
+
+            #If need to remove last id
+            if (self.largestnum-1)%100 != 0:
+                os.unlink(os.path.join(self.name,self.name+'_'+str(self.largestnum-1)))
+
+            self.largestnum+=1
 
 import collections
 class Layer:
