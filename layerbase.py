@@ -55,6 +55,8 @@ class safefile:
             try: os.unlink(self.name+'.tmp')
             except: pass
         #Directory based batch store
+        if not os.path.exists(self.name):
+            os.mkdir(self.name)
         if not os.path.isdir(self.name):
             os.rename(self.name, self.name+'.tmp')
             os.mkdir(self.name)
@@ -67,7 +69,10 @@ class safefile:
         return self
 
     def __nonzero__(self):
-        return os.path.exists(self.name)
+        exists = os.path.exists(os.path.join(self.name,self.name))
+        if not exists:
+            print "NEW MODEL TO LOAD"
+        return exists
     
     def rb(self):
         self.f=file(os.path.join(self.name,self.name),'rb')
