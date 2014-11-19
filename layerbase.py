@@ -113,11 +113,11 @@ class VisSamerank: pass
 
 def nonlinear(input, nonlinear = 'tanh'):
     if nonlinear == 'tanh' or nonlinear == True:
-        return T.tanh(2*input)
+        return T.tanh(input)
     elif nonlinear == 'rectifier':
         return input * (input > 0)
     elif nonlinear == 'sigmoid':
-        return nnet.sigmoid(4*input)
+        return nnet.sigmoid(input)
     elif nonlinear == 'linear' or not nonlinear:
         return input
     else:
