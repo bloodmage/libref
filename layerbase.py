@@ -93,12 +93,13 @@ class safefile:
             if not os.path.exists(os.path.join(self.name,self.name+'.tmp')):
                 print ("Warning: File not generated")
                 return
-            os.rename(os.path.join(self.name,self.name),os.path.join(self.name,self.name+'_'+str(self.largestnum)))
+            if os.path.exists(os.path.join(self.name,self.name)):
+                os.rename(os.path.join(self.name,self.name),os.path.join(self.name,self.name+'_'+str(self.largestnum)))
+                if (self.largestnum-1)%100!=0:
+                    os.unlink(os.path.join(self.name,self.name+'_'+str(self.largestnum-1)))
             os.rename(os.path.join(self.name,self.name+'.tmp'),os.path.join(self.name,self.name))
 
             #If need to remove last id
-            if (self.largestnum-1)%100!=0:
-                os.unlink(os.path.join(self.name,self.name+'_'+str(self.largestnum-1)))
 
             self.largestnum+=1
 
