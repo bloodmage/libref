@@ -286,7 +286,8 @@ class ConvKeepLayer(Layer, Param, VisLayer):
                   high=np.sqrt(0.5/fan_in),
                   size=filter_shape), dtype=theano.config.floatX)
             if through!=None:
-                W_values[:,through:through+filter_shape[0],(filter_shape[2]+1)/2,(filter_shape[3]+1)/2]=1
+                for i in range(len(filter_shape[0])):
+                    W_values[i,through+i,(filter_shape[2]+1)/2,(filter_shape[3]+1)/2]=1
             self.W = theano.shared(value=W_values, name='W_%s'%inc[0])
 
             b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
