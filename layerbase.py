@@ -260,7 +260,7 @@ class MLPConvLayer(Layer, Param, VisLayer):
         inc[0] = inc[0]+1
 
 class ConvKeepLayer(Layer, Param, VisLayer):
-    def __init__(self, rng, input, filter_shape, image_shape = None, Nonlinear = "tanh", zeroone = False, inc=[0], dropout = False, dropoutrnd = None, shareLayer = None):
+    def __init__(self, rng, input, filter_shape, image_shape = None, Nonlinear = "tanh", zeroone = False, inc=[0], dropout = False, dropoutrnd = None, shareLayer = None, through = None):
 
         if isinstance(input, Layer):
             self.input = input.output 
@@ -284,6 +284,8 @@ class ConvKeepLayer(Layer, Param, VisLayer):
                   low=-np.sqrt(0.5/fan_in),
                   high=np.sqrt(0.5/fan_in),
                   size=filter_shape), dtype=theano.config.floatX)
+            if through!=None:
+                W_values[:,through:through+filter_shape[0],(filter_shape[2]+1)/2,(filter_shape[3]+1)/2]=1
             self.W = theano.shared(value=W_values, name='W_%s'%inc[0])
 
             b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
