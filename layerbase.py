@@ -7,6 +7,8 @@ try:
     from theano.tensor.signal import downsample
     from theano.tensor.nnet import conv
     import theano.tensor.signal.conv as sconv
+    import theano.sandbox.cuda.dnn as dconv
+    import theano.sandbox.cuda as cuda
 except:
     print "THEANO ERROR, THEANO-Based functions are disabled"
 import os
@@ -15,8 +17,10 @@ import shutil
 
 THEANO_CONV = 0
 FFT_CONV = 1
+CUDNN_CONV = 2
+GPUCORR_CONV = 3
 
-convmode = THEANO_CONV
+convmode = GPUCORR_CONV
 
 def setconvmode(mode):
     global convmode
@@ -24,22 +28,24 @@ def setconvmode(mode):
 
 def conv2d(input,filters,image_shape=None,filter_shape=None,border_mode='valid'):
     global convmode
+    if border_mode=='same':
+        allocspace = T.alloc(0.0, image_shape[0], image_shape[1], image_shape[2]+filter_shape[2]-1, image_shape[3]+filter_shape[3]-1)
+        allocspace = T.set_subtensor(allocspace[:,:,filter_shape[2]/2:filter_shape[2]/2+image_shape[2],filter_shape[3]/2:filter_shape[3]/2+image_shape[3]],input)
+        border_mode='valid'
+    else:
+        allocspace = input
     if convmode==THEANO_CONV:
-        if border_mode=='same':
-            allocspace = T.alloc(0.0, image_shape[0], image_shape[1], image_shape[2]+filter_shape[2]-1, image_shape[3]+filter_shape[3]-1)
-            allocspace = T.set_subtensor(allocspace[:,:,filter_shape[2]/2:filter_shape[2]/2+image_shape[2],filter_shape[3]/2:filter_shape[3]/2+image_shape[3]],input)
-        else:
-            allocspace = input
         return conv.conv2d(allocspace,filters,image_shape=image_shape,filter_shape=filter_shape,border_mode=border_mode)
+    elif convmode==CUDNN_CONV:
+        return dconv.dnn_conv(allocspace,filters,border_mode=border_mode, direction_hint='forward!')
+    elif convmode==GPUCORR_CONV:
+        import theano.sandbox.cuda.blas
+        return theano.sandbox.cuda.blas.GpuCorrMM(border_mode)(allocspace,cuda.basic_ops.gpu_contiguous(filters[:,:,::-1,::-1]))
     elif convmode==FFT_CONV:
-        if border_mode=='same':
-            allocspace = T.alloc(0.0, image_shape[0], image_shape[1], image_shape[2]+filter_shape[2]-1, image_shape[3]+filter_shape[3]-1)
-            allocspace = T.set_subtensor(allocspace[:,:,filter_shape[2]/2:filter_shape[2]/2+image_shape[2],filter_shape[3]/2:filter_shape[3]/2+image_shape[3]],input)
-        elif border_mode=='full':
+        if border_mode=='full':
             allocspace = T.alloc(0.0, image_shape[0], image_shape[1], image_shape[2]+filter_shape[2]*2-2, image_shape[3]+filter_shape[3]*2-2)
             allocspace = T.set_subtensor(allocspace[:,:,filter_shape[2]-1:filter_shape[2]-1+image_shape[2],filter_shape[3]-1:filter_shape[3]-1+image_shape[3]],input)
-        else:
-            allocspace = input
+            border_mode='valid'
         import fftconv
         return fftconv.conv2d_fft(allocspace,filters,image_shape=image_shape,filter_shape=filter_shape)
 class safefile:
@@ -294,9 +300,9 @@ class ConvKeepLayer(Layer, Param, VisLayer):
             self.b = theano.shared(value=b_values, name='b_%s'%inc[0])
 
         conv_out = conv2d(self.input, self.W,
-                filter_shape=filter_shape, image_shape=image_shape, border_mode="full")
+                filter_shape=filter_shape, image_shape=image_shape, border_mode="same")
         #Get middle area
-        conv_out = conv_out[:,:,med[0]:-med[0],med[1]:-med[1]]
+        #conv_out = conv_out[:,:,med[0]:-med[0],med[1]:-med[1]]
 
         self.output = nonlinear(conv_out + self.b.dimshuffle('x', 0, 'x', 'x'), Nonlinear)
         if zeroone:
@@ -693,7 +699,9 @@ class Model:
                 for j in i.params:
                     try:
                         assert j.get_value().shape == obj['%s_%s'%(idx,j.name)].shape
-                        j.set_value(obj['%s_%s'%(idx,j.name)])
+                        d = j.get_value()
+                        d[:]=obj['%s_%s'%(idx,j.name)]
+                        j.set_value(d)
                     except:
                         print "CANNOT SET",'%s_%s'%(idx,j.name)
     
@@ -775,4 +783,6 @@ def shuffle_in_unison_inplace(rng, a, b):
     assert len(a) == len(b)
     p = rng.permutation(len(a))
     return a[p], b[p]
+
+
 
