@@ -33,6 +33,7 @@ def conv2d(input,filters,image_shape=None,filter_shape=None,border_mode='valid')
     global convmode
     if border_mode=='same':
         allocspace = T.alloc(0.0, image_shape[0], image_shape[1], image_shape[2]+filter_shape[2]-1, image_shape[3]+filter_shape[3]-1)
+        allocspace = T.patternbroadcast(allocspace, (False,)*4)
         allocspace = T.set_subtensor(allocspace[:,:,filter_shape[2]/2:filter_shape[2]/2+image_shape[2],filter_shape[3]/2:filter_shape[3]/2+image_shape[3]],input)
         border_mode='valid'
     else:
@@ -47,6 +48,7 @@ def conv2d(input,filters,image_shape=None,filter_shape=None,border_mode='valid')
     elif convmode==FFT_CONV:
         if border_mode=='full':
             allocspace = T.alloc(0.0, image_shape[0], image_shape[1], image_shape[2]+filter_shape[2]*2-2, image_shape[3]+filter_shape[3]*2-2)
+            allocspace = T.patternbroadcast(allocspace, (False,)*4)
             allocspace = T.set_subtensor(allocspace[:,:,filter_shape[2]-1:filter_shape[2]-1+image_shape[2],filter_shape[3]-1:filter_shape[3]-1+image_shape[3]],input)
             border_mode='valid'
         import fftconv
