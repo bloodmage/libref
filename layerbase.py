@@ -9,9 +9,6 @@ try:
     import theano.tensor.signal.conv as sconv
     import theano.sandbox.cuda.dnn as dconv
     import theano.sandbox.cuda as cuda
-    import sys
-    sys.setrecursionlimit(1000000)
-    print "RECURSION LIMIT OVERRIDE BY 1000000"
 except:
     print "THEANO ERROR, THEANO-Based functions are disabled"
 import os
