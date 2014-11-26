@@ -20,7 +20,7 @@ FFT_CONV = 1
 CUDNN_CONV = 2
 GPUCORR_CONV = 3
 
-convmode = GPUCORR_CONV
+convmode = CUDNN_CONV
 
 def setconvmode(mode):
     global convmode
