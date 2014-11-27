@@ -6,9 +6,12 @@ try:
     import theano.tensor.nnet as nnet
     from theano.tensor.signal import downsample
     from theano.tensor.nnet import conv
-    import theano.tensor.signal.conv as sconv
-    import theano.sandbox.cuda.dnn as dconv
-    import theano.sandbox.cuda as cuda
+    try: import theano.tensor.signal.conv as sconv
+    except: print "SIGNAL CONV DISABLED"
+    try: import theano.sandbox.cuda.dnn as dconv
+    except: print "CUDNN CONV DISABLED"
+    try: import theano.sandbox.cuda as cuda
+    except: print "SANDBOX IMPORT FAILED"
 except:
     print "THEANO ERROR, THEANO-Based functions are disabled"
 import os

@@ -11,6 +11,17 @@ from theano.tensor.nnet import conv
 INF = 1e10
 b3tensor = T.TensorType(dtype = theano.config.floatX, broadcastable = [])
 
+setBroadcastReshaping = False
+def SetReshapeBroadcast(reshaping):
+    global setBroadcastReshaping
+    setBroadcastReshaping = reshaping
+def CachedAlloc(d, *shape):
+    global setBroadcastReshaping
+    if setBroadcastReshaping:
+        return T.patternbroadcast(T.alloc(d,*shape),(False,)*len(shape))
+    else:
+        return T.alloc(d,*shape)
+
 def max_pool(bc01, pool_shape, pool_stride, image_shape):
     """
     Theano's max pooling op only supports pool_stride = pool_shape
@@ -76,7 +87,7 @@ def max_pool(bc01, pool_shape, pool_stride, image_shape):
     required_c = last_pool_c + pc
 
 
-    wide_infinity = T.alloc(T.constant(-np.inf, dtype=config.floatX),
+    wide_infinity = CachedAlloc(T.constant(-np.inf, dtype=config.floatX),
                             bc01.shape[0],
                             bc01.shape[1],
                             required_r,
@@ -128,7 +139,7 @@ class StacksampleFractal(Layer):
 
         #Extend one pixel at each direction
         shapeext = input_shape[0], input_shape[1], input_shape[2]+2, input_shape[3]+2
-        inputext = T.alloc(dtypeX(-INF), *shapeext)
+        inputext = CachedAlloc(dtypeX(-INF), *shapeext)
         #inputext = T.patternbroadcast(inputext, (False,)*4)
 
         inputext = T.set_subtensor(inputext[:,:,1:input_shape[2]+1,1:input_shape[3]+1], self.input)
@@ -146,7 +157,7 @@ class StacksampleFractal(Layer):
         if (input_shape[2]&1)==0:
             joined = T.concatenate([c00,c01,c10,c11], axis=0)
         else:
-            joined = T.alloc(dtypeX(feedval), *((input_shape[0]*4,)+self.one_channel[1:4]))
+            joined = CachedAlloc(dtypeX(feedval), *((input_shape[0]*4,)+self.one_channel[1:4]))
             joined = T.set_subtensor(joined[0:self.one_channel[0],:,:,:], c00)
             joined = T.set_subtensor(joined[self.one_channel[0]:self.one_channel[0]*2,:,:,:-1], c01)
             joined = T.set_subtensor(joined[self.one_channel[0]*2:self.one_channel[0]*3,:,:-1,:], c10)
@@ -178,7 +189,7 @@ class DestacksampleFractal(Layer):
             self.output_shape = stacksamplelayer.input_shape[0], input_shape[1], input_shape[2]*2, input_shape[3]*2
         else:
             self.output_shape = stacksamplelayer.input_shape[0], input_shape[1], input_shape[2]*2-1, input_shape[3]*2-1
-        self.output = T.alloc(dtypeX(0.0), *self.output_shape)
+        self.output = CachedAlloc(dtypeX(0.0), *self.output_shape)
         #print self.output_shape
 
         c00 = self.input[0:stacksamplelayer.one_channel[0]]
@@ -214,7 +225,7 @@ class StacklayerFractal(Layer):
 
         #Extend one pixel at each direction
         shapeext = input_shape[0], input_shape[1], input_shape[2]+2, input_shape[3]+2
-        inputext = T.alloc(dtypeX(-INF), *shapeext)
+        inputext = CachedAlloc(dtypeX(-INF), *shapeext)
 
         inputext = T.set_subtensor(inputext[:,:,1:input_shape[2]+1,1:input_shape[3]+1], self.input)
         
@@ -231,7 +242,7 @@ class StacklayerFractal(Layer):
         if (input_shape[2]&1)==0:
             joined = T.concatenate([c00,c01,c10,c11], axis=1)
         else:
-            joined = T.alloc(dtypeX(feedval), *((input_shape[0]*4,)+self.one_channel[1:4]))
+            joined = CachedAlloc(dtypeX(feedval), *((input_shape[0]*4,)+self.one_channel[1:4]))
             joined = T.set_subtensor(joined[:,0:self.one_channel[1],:,:], c00)
             joined = T.set_subtensor(joined[:,self.one_channel[1]:self.one_channel[1]*2,:,:-1], c01)
             joined = T.set_subtensor(joined[:,self.one_channel[1]*2:self.one_channel[1]*3,:-1,:], c10)
@@ -263,7 +274,7 @@ class DestacklayerFractal(Layer):
             self.output_shape = input_shape[0], stacksamplelayer.input_shape[1], input_shape[2]*2, input_shape[3]*2
         else:
             self.output_shape = input_shape[0], stacksamplelayer.input_shape[1], input_shape[2]*2-1, input_shape[3]*2-1
-        self.output = T.alloc(dtypeX(0.0), *self.output_shape)
+        self.output = CachedAlloc(dtypeX(0.0), *self.output_shape)
         #print self.output_shape
 
         c00 = self.input[:,0:stacksamplelayer.input_shape[1]]
@@ -299,7 +310,7 @@ class ShrinkshapeMeanFractal(Layer, VisSamerank):
 
         #Extend one pixel at each direction
         shapeext = input_shape[0], input_shape[1], input_shape[2]+2, input_shape[3]+2
-        inputext = T.alloc(dtypeX(-INF), *shapeext)
+        inputext = CachedAlloc(dtypeX(-INF), *shapeext)
 
         inputext = T.set_subtensor(inputext[:,:,1:input_shape[2]+1,1:input_shape[3]+1], self.input)
         self.output = images2neibs(inputext, (3,3), (2,2), 'ignore_borders').mean(axis=-1)
@@ -323,7 +334,7 @@ class ShrinkshapeFractal(Layer):
 
         #Extend one pixel at each direction
         shapeext = input_shape[0], input_shape[1], input_shape[2]+1, input_shape[3]+1
-        inputext = T.alloc(dtypeX(-INF), *shapeext)
+        inputext = CachedAlloc(dtypeX(-INF), *shapeext)
 
         inputext = T.set_subtensor(inputext[:,:,1:input_shape[2]+1,1:input_shape[3]+1], self.input)
         
@@ -351,7 +362,7 @@ class ExpandshapeFractal(Layer):
 
         self.output_shape = input_shape[0], input_shape[1]+cali, shrinksamplelayer.input_shape[2], shrinksamplelayer.input_shape[3]
 
-        output = T.alloc(dtypeX(0.0), *self.output_shape)
+        output = CachedAlloc(dtypeX(0.0), *self.output_shape)
 
         #Expand data 4 fold
         if (shrinksamplelayer.input_shape[2]&1)==0:
@@ -370,20 +381,12 @@ class ExpandshapeFractal(Layer):
         #Feed calibrate data
         if calibrate:
             #HACK, strange
-            dval = T.alloc(dtypeX(1.0), input_shape[0], shrinksamplelayer.input_shape[2], shrinksamplelayer.input_shape[3]/2)
+            dval = CachedAlloc(dtypeX(1.0), input_shape[0], shrinksamplelayer.input_shape[2], shrinksamplelayer.input_shape[3]/2)
             output = T.set_subtensor(output[:,input_shape[1],:,1::2], dval)
-            dval = T.alloc(dtypeX(1.0), input_shape[0], shrinksamplelayer.input_shape[2]/2, shrinksamplelayer.input_shape[3])
+            dval = CachedAlloc(dtypeX(1.0), input_shape[0], shrinksamplelayer.input_shape[2]/2, shrinksamplelayer.input_shape[3])
             output = T.set_subtensor(output[:,input_shape[1]+1,1::2], dval)
 
         self.output = output
-
-allocingcache = {}
-def CachedAlloc(d, *shape):
-    global allocingcache
-    akey = str('%s\t%s'%(d,shape))
-    if akey not in allocingcache:
-        allocingcache[akey] = T.patternbroadcast(T.alloc(d,*shape),(False,)*len(shape))
-    return allocingcache[akey]
 
 class AggregationLayer(Layer):
 
