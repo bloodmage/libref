@@ -276,7 +276,7 @@ class MLPConvLayer(Layer, Param, VisLayer):
         inc[0] = inc[0]+1
 
 class ConvKeepLayer(Layer, Param, VisLayer):
-    def __init__(self, rng, input, filter_shape, image_shape = None, Nonlinear = "tanh", zeroone = False, inc=[0], dropout = False, dropoutrnd = None, shareLayer = None, through = None):
+    def __init__(self, rng, input, filter_shape, image_shape = None, Nonlinear = "tanh", zeroone = False, inc=[0], dropout = False, dropoutrnd = None, shareLayer = None, through = None, throughend = None):
 
         if isinstance(input, Layer):
             self.input = input.output 
@@ -301,7 +301,7 @@ class ConvKeepLayer(Layer, Param, VisLayer):
                   high=np.sqrt(0.5/fan_in),
                   size=filter_shape), dtype=theano.config.floatX)
             if through!=None:
-                for i in range(filter_shape[0]):
+                for i in range(filter_shape[0] if throughend==None else throughend):
                     W_values[i,through+i,(filter_shape[2]-1)/2,(filter_shape[3]-1)/2]=1
             self.W = theano.shared(value=W_values, name='W_%s'%inc[0])
 
@@ -328,6 +328,91 @@ class ConvKeepLayer(Layer, Param, VisLayer):
             self.params = [self.W, self.b]
     
         inc[0] = inc[0]+1
+
+
+class ConcentrateConvKeepLayer(Layer, Param, VisLayer):
+    def __init__(self, rng, input, concentrate, filter_shape, image_shape = None, Nonlinear = "tanh", zeroone = False, inc=[0], dropout = False, dropoutrnd = None, shareLayer = None, through = None, throughend = None):
+
+        if isinstance(input, Layer):
+            self.input = input.output 
+            Layer.linkstruct[input].append(self)
+            if image_shape==None:
+                image_shape = input.output_shape
+        else:
+            self.input = input
+        assert image_shape[1] == filter_shape[1]
+        assert filter_shape[2]%2 == 1
+        assert filter_shape[3]%2 == 1
+        med = (filter_shape[2]-1)/2,(filter_shape[3]-1)/2
+
+        fan_in = np.prod(filter_shape[1:])
+
+        if shareLayer!=None:
+            self.W = shareLayer.W
+            self.b = shareLayer.b
+        else:
+            W_values = np.asarray(rng.uniform(
+                  low=-np.sqrt(0.5/fan_in),
+                  high=np.sqrt(0.5/fan_in),
+                  size=filter_shape), dtype=theano.config.floatX)
+            if through!=None:
+                for i in range(filter_shape[0] if throughend==None else throughend):
+                    W_values[i,through+i,(filter_shape[2]-1)/2,(filter_shape[3]-1)/2]=1
+            self.W = theano.shared(value=W_values, name='W_%s'%inc[0])
+
+            b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
+            self.b = theano.shared(value=b_values, name='b_%s'%inc[0])
+        
+        npconc = np.array(concentrate, dtype=theano.config.floatX)
+        concentrate = theano.shared(value=npconc)
+        concentrate = concentrate.reshape((1,1)+npconc.shape)
+
+        conv_out = conv2d(self.input, self.W * concentrate,
+                filter_shape=filter_shape, image_shape=image_shape, border_mode="same")
+
+        self.output = nonlinear(conv_out + self.b.dimshuffle('x', 0, 'x', 'x'), Nonlinear)
+        if zeroone:
+            self.output = (self.output+1) * 0.5
+        self.output_shape = (image_shape[0], filter_shape[0], image_shape[2], image_shape[3])
+        
+
+        if not (dropout is False): #Embed a layerwise dropout layer
+            self.output = LayerbasedDropOut(self, dropoutrnd, dropout).output
+        
+        if shareLayer!=None:
+            self.params = []
+        else:
+            self.params = [self.W, self.b]
+    
+        inc[0] = inc[0]+1
+
+class MulNonlinearLayer(Layer,VisSamerank):
+
+    def __init__(self, input, leftnonlinear=False, rightnonlinear=False, outnonlinear='tanh'):
+
+        assert isinstance(input, Layer)
+        assert input.output_shape[1]%2==0
+        Layer.linkstruct[input].append(self)
+
+        self.input = input.output
+        image_shape = input.output_shape
+
+        self.linput = nonlinear(self.input[:,:image_shape[1]/2], leftnonlinear)
+        self.rinput = nonlinear(self.input[:,image_shape[1]/2:], rightnonlinear)
+        
+        self.output = nonlinear(self.linput*self.rinput, outnonlinear)
+        self.output_shape = image_shape[0], image_shape[1]/2, image_shape[2], image_shape[3]
+
+def MulConvHelper(convlayer):
+    if len(convlayer.params)==2:
+        w,b = convlayer.params
+        wval = w.get_value()
+        bval = b.get_value()
+        wval[convlayer.output_shape[1]/2:]=0
+        bval[convlayer.output_shape[1]/2:]=1
+        w.set_value(wval)
+        b.set_value(bval)
+    return convlayer
 
 class LRN_AcrossMap(Layer,VisSamerank):
     
