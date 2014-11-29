@@ -65,7 +65,10 @@ def _gethash():
     import sys
     import binascii
     fnames = [i.__file__ for i in sys.modules.values() if hasattr(i,'__file__')]
-    hashs = [binascii.crc32(file(i,'rb').read()) for i in fnames]
+    hashs = []
+    for i in fnames:
+        try: hashs.append(binascii.crc32(file(i,'rb').read()))
+        except: pass
     return reduce(lambda x,y:x^y,hashs)
 
 def _bestsplit(val):
