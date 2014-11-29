@@ -373,6 +373,7 @@ class Record:
         namelist = f.f_locals
 
         for i in self.layers:
+            i.rec__name = 'noname'
             for j in namelist.keys():
                 if namelist[j] is i:
                     #Name each layer
