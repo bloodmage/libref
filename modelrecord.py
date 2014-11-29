@@ -24,6 +24,7 @@ import json
 import base64
 import itsdangerous
 import PIL
+import re
 from layerbase import DrawPatch
 
 DATAREC = [
@@ -150,6 +151,61 @@ except:
         def setmesg(self, mesg):
             self.mesg = mesg
 
+if sys.platform == 'win32':
+    import ctypes
+    from ctypes import wintypes
+
+    GetCurrentProcess = ctypes.windll.kernel32.GetCurrentProcess
+    GetCurrentProcess.argtypes = []
+    GetCurrentProcess.restype = wintypes.HANDLE
+
+    SIZE_T = ctypes.c_size_t
+
+    class PROCESS_MEMORY_COUNTERS_EX(ctypes.Structure):
+        _fields_ = [
+            ('cb', wintypes.DWORD),
+            ('PageFaultCount', wintypes.DWORD),
+            ('PeakWorkingSetSize', SIZE_T),
+            ('WorkingSetSize', SIZE_T),
+            ('QuotaPeakPagedPoolUsage', SIZE_T),
+            ('QuotaPagedPoolUsage', SIZE_T),
+            ('QuotaPeakNonPagedPoolUsage', SIZE_T),
+            ('QuotaNonPagedPoolUsage', SIZE_T),
+            ('PagefileUsage', SIZE_T),
+            ('PeakPagefileUsage', SIZE_T),
+            ('PrivateUsage', SIZE_T),
+        ]
+
+    GetProcessMemoryInfo = ctypes.windll.psapi.GetProcessMemoryInfo
+    GetProcessMemoryInfo.argtypes = [
+        wintypes.HANDLE,
+        ctypes.POINTER(PROCESS_MEMORY_COUNTERS_EX),
+        wintypes.DWORD,
+    ]
+    GetProcessMemoryInfo.restype = wintypes.BOOL
+
+    def get_current_process():
+        """Return handle to current process."""
+        return GetCurrentProcess()
+
+    def get_memory_info(process=None):
+        """Return Win32 process memory counters structure as a dict."""
+        if process is None:
+            process = get_current_process()
+        counters = PROCESS_MEMORY_COUNTERS_EX()
+        ret = GetProcessMemoryInfo(process, ctypes.byref(counters),
+                                   ctypes.sizeof(counters))
+        if not ret:
+            raise ctypes.WinError()
+        info = dict((name, getattr(counters, name))
+                    for name, _ in counters._fields_)
+        return info
+
+    def get_memory_usage(process=None):
+        """Return this process's memory usage in bytes."""
+        info = get_memory_info(process=process)
+        return info['PrivateUsage']
+        
 def _mystatrec():
     "记录程序统计信息"
     #main位置，GPU，内存，起止时间，机器名，IP，磁盘，load
@@ -168,6 +224,8 @@ def _mystatrec():
             stat['status'] = file('/proc/self/status').read()
         except:
             pass
+    elif sys.platform=='win32':
+        stat['mem'] = str(get_memory_usage())
     #TIME
     stat['walltime'] = time.time() - starttime
     try:
@@ -180,18 +238,24 @@ def _mystatrec():
     stat['machine'] = platform.node()
     #IP/MAC
     stat['mac'] = uuid.getnode()
-    try:
-        stat['ips'] = commands.getoutput('/sbin/ifconfig | grep -i "inet" | grep -iv "inet6" | awk {\'print $2\'} | sed -ne \'s/addr\:/ /p\'').replace('\n ',',')
-        stat['detailip'] = commands.getoutput('ip address show')
-    except:
+    if sys.platform=='win32':
         stat['ips'] = socket.gethostbyname(socket.gethostname())
+    else:
+        try:
+            stat['ips'] = commands.getoutput('/sbin/ifconfig | grep -i "inet" | grep -iv "inet6" | awk {\'print $2\'} | sed -ne \'s/addr\:/ /p\'').replace('\n ',',')
+            stat['detailip'] = commands.getoutput('ip address show')
+        except:
+            stat['ips'] = socket.gethostbyname(socket.gethostname())
     #DISKFREE
     #LOAD
-    try:
-        stat['diskfree'] = commands.getoutput('df')
-        stat['load'] = os.getloadavg()
-    except:
-        pass
+    if sys.platform=='win32':
+        stat['diskfree'] = re.findall(r"(?s)((?:\d+,?)+)", os.popen('dir','r').readlines()[-1].strip())
+    else:
+        try:
+            stat['diskfree'] = commands.getoutput('df')
+            stat['load'] = os.getloadavg()
+        except:
+            pass
     return stat
 
 class AsyncRest:

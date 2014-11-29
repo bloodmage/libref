@@ -116,15 +116,23 @@ def MPTwoAheadProducer(prodfuncstr):
         return dataqueue.get()
     return gen
 
-def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fcheckgen=None,TOLTIMES=5,BATCHSTEP=10,LEARNRATEVAR=None,LEARNRATETARGET=10.0,LEARNADJUST=1.01):
+def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fcheckgen=None,TOLTIMES=5,BATCHSTEP=10,LEARNRATEVAR=None,LEARNRATETARGET=10.0,LEARNADJUST=1.01, remotemonitor = False, sameranks = []):
     from layerbase import safefile
     import sys, os
+    if remotemonitor!=False:
+        import modelrecord
+        if remotemonitor==None: modrec = remotemonitor.Record()
+        else: modrec = modelrecord.Record(remotemonitor)
+        modrec.genmeta(model, sameranks)
+    else:
+        modrec = None
+
     with safefile(savename) as loadf:
         if loadf:
             model.load(loadf.rb())
     LOSS0 = 1e100
     tol = 0
-    d = 0
+    l = d = 0
     if not os.path.exists(vispath):
         os.mkdir(vispath)
     MPDrawInitializer(vispath)
@@ -136,7 +144,9 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
     while True:
         step += 1
         gen = fdatagen()
-        d += [float(t) for t in ftrain(*gen)][1]
+        loss,upd = [float(t) for t in ftrain(*gen)]
+        l += loss
+        d += upd
         sys.stdout.write('.')
         sys.stdout.flush()
         if step % BATCHSTEP == BATCHSTEP-1:
@@ -147,7 +157,11 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
                 else: lval *= LEARNADJUST
                 LEARNRATEVAR.set_value(dtypeX(lval))
                 print lval,
-            d = 0
+            if modrec!=None:
+                modrec.R()
+                modrec.Rlt(l)
+                modrec.Rd()
+            l = d = 0
             print "DRAW"
             #Draw model
             drawlayers = []
@@ -159,13 +173,15 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
             resplayers = fvis(*gen) if fvis!=None else []
             MPDrawWriter(drawlayers,resplayers)
             #Check validset
-            if fcheckgen!=None:
+            if fcheckgen!=None and fcheck!=None:
                 LOSS1 = 0.0
                 for j in fcheckgen():
                     sys.stdout.write('.')
                     sys.stdout.flush()
-                    LOSS1 += valid_model(*j)
+                    LOSS1 += fcheck(*j)
                 print LOSS1
+                if modrec!=None:
+                    modrec.Rlv(LOSS1)
                 if LOSS1>LOSS0:
                     print "Converge on validset"
                     tol+=1
@@ -175,6 +191,9 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
                     tol=0
                 print "NEW LOSS",LOSS1
                 LOSS0 = LOSS1
+            #Commit
+            if modrec!=None:
+                modrec.C()
         #Save model
         with safefile(savename) as savef:
             model.save(savef.wb())
