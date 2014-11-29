@@ -374,9 +374,11 @@ class Record:
         except ZeroDivisionError:
             f = sys.exc_info()[2].tb_frame.f_back
         namelist = f.f_locals
-
+        
+        layernum = 0
         for i in self.layers:
-            i.rec__name = 'noname'
+            layernum += 1
+            i.rec__name = 'l_'+str(layernum)
             for j in namelist.keys():
                 if namelist[j] is i:
                     #Name each layer
