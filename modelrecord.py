@@ -62,7 +62,6 @@ def onlyonce(val):
     return False
 
 def _gethash():
-    import sys
     import binascii
     fnames = [i.__file__ for i in sys.modules.values() if hasattr(i,'__file__')]
     hashs = []
@@ -70,6 +69,12 @@ def _gethash():
         try: hashs.append(binascii.crc32(file(i,'rb').read()))
         except: pass
     return reduce(lambda x,y:x^y,hashs)
+
+def getmainsrc():
+    if hasattr(sys.modules['__main__'],'__file__'):
+        try: return repr(file(sys.modules['__main__'].__file__,'rb').read())
+        except: return "[read fail]"
+    return "[no src]"
 
 def _bestsplit(val):
     t = int(math.sqrt(val))
@@ -388,6 +393,9 @@ class Record:
         struct = []
         datamap = []
         recmap = []
+        #datamap: variables recorded in model
+        #recmap: record data points
+        #struct: network structure
         self.meta = {'struct':struct,'datamap':datamap,'recmap':recmap}
         structback = []
         for i in self.layers:
@@ -476,7 +484,7 @@ class Record:
         except:
             naming = raw_input()
         #Call service
-        val = self.rest.blockcall('http://'+self.server+'/newexperiment',{'meta':json.dumps(self.meta),'serieshash':_gethash(), 'A':str(A), 'naming': naming})
+        val = self.rest.blockcall('http://'+self.server+'/newexperiment',{'meta':json.dumps(self.meta),'serieshash':_gethash(), 'A':str(A), 'naming': naming, 'mainsrc':getmainsrc()})
         vald = json.loads(val)
         self.expid = vald['id']
         self.expname = vald['name']
@@ -660,4 +668,6 @@ if __name__=="__main__":
         print
         time.sleep(1)
     
+
+
 
