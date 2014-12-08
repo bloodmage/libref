@@ -1,6 +1,7 @@
 import layerbase
 import fractallayer_nosquare as flayer
 from fractallayer import dtypeX
+import new
 
 def RepeatNetworkBuilder(inp,build,repeat,*args,**kwargs):
     layers = []
@@ -116,7 +117,16 @@ def MPTwoAheadProducer(prodfuncstr):
         return dataqueue.get()
     return gen
 
+TRAINSETTINGS = new.classobj('settings',(),{})()
+
 def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fcheckgen=None,TOLTIMES=5,BATCHSTEP=10,LEARNRATEVAR=None,LEARNRATETARGET=10.0,LEARNADJUST=1.01, remotemonitor = False, sameranks = []):
+    global TRAINSETTINGS
+    TRAINSETTINGS.TOLTIMES = TOLTIMES
+    TRAINSETTINGS.BATCHSTEP = BATCHSTEP
+    TRAINSETTINGS.LEARNRATEVAR = LEARNRATEVAR
+    TRAINSETTINGS.LEARNRATETARGET = LEARNRATETARGET
+    TRAINSETTINGS.LEARNADJUST = LEARNADJUST
+
     from layerbase import safefile
     import sys, os
     if remotemonitor!=False:
@@ -149,13 +159,13 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
         d += upd
         sys.stdout.write('.')
         sys.stdout.flush()
-        if step % BATCHSTEP == BATCHSTEP-1:
+        if step % TRAINSETTINGS.BATCHSTEP == TRAINSETTINGS.BATCHSTEP-1:
             print d,
-            if LEARNRATEVAR!=None:
-                lval = LEARNRATEVAR.get_value()
-                if d>LEARNRATETARGET*BATCHSTEP: lval /= LEARNADJUST
-                else: lval *= LEARNADJUST
-                LEARNRATEVAR.set_value(dtypeX(lval))
+            if TRAINSETTINGS.LEARNRATEVAR!=None:
+                lval = TRAINSETTINGS.LEARNRATEVAR.get_value()
+                if d>TRAINSETTINGS.LEARNRATETARGET*TRAINSETTINGS.BATCHSTEP: lval /= TRAINSETTINGS.LEARNADJUST
+                else: lval *= TRAINSETTINGS.LEARNADJUST
+                TRAINSETTINGS.LEARNRATEVAR.set_value(dtypeX(lval))
                 print lval,
             if modrec!=None:
                 modrec.R()
@@ -185,7 +195,7 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
                 if LOSS1>LOSS0:
                     print "Converge on validset"
                     tol+=1
-                    if tol>TOLTIMES:
+                    if tol>TRAINSETTINGS.TOLTIMES:
                         sys.exit(0)
                 else:
                     tol=0
