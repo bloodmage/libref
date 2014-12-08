@@ -109,7 +109,10 @@ class safefile:
                 print ("Warning: File not generated")
                 return
             if os.path.exists(os.path.join(self.name,self.name)):
-                os.rename(os.path.join(self.name,self.name),os.path.join(self.name,self.name+'_'+str(self.largestnum)))
+                try: os.rename(os.path.join(self.name,self.name),os.path.join(self.name,self.name+'_'+str(self.largestnum)))
+                except:
+                    print "RENAME FAIL, IGNORE"
+                    return
                 if (self.largestnum-1)%100!=0:
                     os.unlink(os.path.join(self.name,self.name+'_'+str(self.largestnum-1)))
             os.rename(os.path.join(self.name,self.name+'.tmp'),os.path.join(self.name,self.name))

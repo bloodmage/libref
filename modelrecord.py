@@ -279,11 +279,12 @@ class AsyncRest:
                 url, data, callback = self.pool.get()
                 while True:
                     try:
-                        r = requests.post(url, data = data)
+                        r = requests.post(url, data = data, timeout=30)
                         if r.status_code != 200: continue
                     except KeyboardInterrupt:
                         raise
                     except requests.exceptions.RequestException:
+                        time.sleep(10)
                         continue
                     break
                 if callback!=None:
