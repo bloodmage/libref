@@ -26,6 +26,8 @@ import itsdangerous
 import PIL
 import re
 from layerbase import DrawPatch
+import locale
+locallocale = locale.getpreferredencoding()
 
 DATAREC = [
         ('sum', 'float'),
@@ -493,7 +495,7 @@ class Record:
         self.exp_key = str(pow(B,a,N))
         self.signer = itsdangerous.Signer(self.exp_key)
         _stat = _mystatrec()
-        PatchedStdout(self.expname.encode('utf-8')+(u'(%s,%s,%s)'%(self.expid,_stat['device'],os.path.split(_stat['filepath'])[1])).encode('utf-8'))
+        self.patchout = PatchedStdout(self.expname.encode('utf-8')+(u'(%s,%s,%s)'%(self.expid,_stat['device'],os.path.split(_stat['filepath'])[1])).encode('utf-8'))
         interacthelper('ws://'+self.server+':8080/cmdsock',self)
         
     def R(self):
@@ -638,12 +640,16 @@ class Record:
                     'data': self.datastore
                     }
 
+    def _NewNameUpdate(self, data):
+        content = json.loads(data)
+        self.patchout.mesg = content.expname.encode(locallocale,'replace')
+
     def C(self):
         "进行一个批次提交，附加提交瞬间内存CPU等信息"
         statupload = _mystatrec()
         dataupload = self.dataupload
         #Call api to load data/stat/single image
-        self.rest.restcall('http://'+self.server+'/updateexp', {'expid':self.expid, 'info':self.signer.sign(json.dumps(statupload))})
+        self.rest.restcall('http://'+self.server+'/updateexp', {'expid':self.expid, 'info':self.signer.sign(json.dumps(statupload))},self._NewName)
         self.rest.restcall('http://'+self.server+'/record', {'expid':self.expid, 'data':self.signer.sign(json.dumps(dataupload))})
         for meta,type_,data in self.imgstore:
             self.rest.restcall('http://'+self.server+'/recordimg', {'expid':self.expid,
