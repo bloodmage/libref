@@ -495,6 +495,7 @@ class Record:
         self.exp_key = str(pow(B,a,N))
         self.signer = itsdangerous.Signer(self.exp_key)
         _stat = _mystatrec()
+        self._stat = _stat
         self.patchout = PatchedStdout(self.expname.encode('utf-8')+(u'(%s,%s,%s)'%(self.expid,_stat['device'],os.path.split(_stat['filepath'])[1])).encode('utf-8'))
         interacthelper('ws://'+self.server+':8080/cmdsock',self)
         
@@ -642,7 +643,7 @@ class Record:
 
     def _NewNameUpdate(self, data):
         content = json.loads(data)
-        self.patchout.mesg = content['expname'].encode(locallocale,'replace')
+        self.patchout.mesg = content['expname'].encode(locallocale,'replace') + (u'(%s,%s,%s)'%(self.expid,self._stat['device'],os.path.split(self._stat['filepath'])[1])).encode('utf-8')
 
     def C(self):
         "进行一个批次提交，附加提交瞬间内存CPU等信息"
