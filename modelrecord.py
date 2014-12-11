@@ -649,7 +649,7 @@ class Record:
         statupload = _mystatrec()
         dataupload = self.dataupload
         #Call api to load data/stat/single image
-        self.rest.restcall('http://'+self.server+'/updateexp', {'expid':self.expid, 'info':self.signer.sign(json.dumps(statupload))},self._NewName)
+        self.rest.restcall('http://'+self.server+'/updateexp', {'expid':self.expid, 'info':self.signer.sign(json.dumps(statupload))},self._NewNameUpdate)
         self.rest.restcall('http://'+self.server+'/record', {'expid':self.expid, 'data':self.signer.sign(json.dumps(dataupload))})
         for meta,type_,data in self.imgstore:
             self.rest.restcall('http://'+self.server+'/recordimg', {'expid':self.expid,
@@ -1058,10 +1058,8 @@ class interacthelper:
                 ws.send(str(self.sid))
                 while True:
                     dw = ws.recv()
-                    print dw
                     #Receive command
                     cmdkey,cmdid,cmd = json.loads(dw)
-                    print cmdkey,cmdid,cmd
                     #Execute command
                     if cmdkey=='h':
                         ws.send(json.dumps('ok'))
