@@ -642,7 +642,7 @@ class Record:
 
     def _NewNameUpdate(self, data):
         content = json.loads(data)
-        self.patchout.mesg = content.expname.encode(locallocale,'replace')
+        self.patchout.mesg = content['expname']encode(locallocale,'replace')
 
     def C(self):
         "进行一个批次提交，附加提交瞬间内存CPU等信息"
