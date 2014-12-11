@@ -322,6 +322,7 @@ class AsyncRest:
     def join(self):
         self.pool.join()
 
+RECORD_INSTANCE = None
 class Record:
     "实验记录，将进行的实验数据传至服务器"
 
@@ -331,7 +332,10 @@ class Record:
         self.seq = 0
         self.server = server
         self.rest = AsyncRest()
+        self.delegates = []
         atexit.register(self.S)
+        global RECORD_INSTANCE
+        RECORD_INSTANCE = self
 
     def _makerecmap_data(self, datamapid):
         "内部——生成数据记录列"
@@ -646,7 +650,7 @@ class Record:
         self.patchout.mesg = content['expname'].encode(locallocale,'replace') + (u'(%s,%s,%s)'%(self.expid,self._stat['device'],os.path.split(self._stat['filepath'])[1])).encode('utf-8')
 
     def C(self):
-        "进行一个批次提交，附加提交瞬间内存CPU等信息"
+        "进行一个批次提交，附加提交瞬间内存CPU等信息，并运行委托"
         statupload = _mystatrec()
         dataupload = self.dataupload
         #Call api to load data/stat/single image
@@ -659,6 +663,17 @@ class Record:
                                                                     )}
                                )
         self.dataupload = None
+        dcopy = list(self.delegates)
+        self.delegates = []
+        for i in dcopy:
+            try: i()
+            except KeyboardInterrupt: raise
+            except SystemExit: raise
+            except: pass
+    
+    def delegate(self,func):
+        "增加一个委托"
+        self.delegates.append(func)
 
     def S(self):
         "等待完成所有挂起的提交"
