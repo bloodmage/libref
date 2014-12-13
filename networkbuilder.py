@@ -154,6 +154,7 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
     lrstep = 0
     if longrangecheck!=None and longrangeperiod==None:
         longrangeperiod = BATCHSTEP
+    if longrangeperiod!=None:
         TRAINSETTINGS.LONGRANGEPERIOD = longrangeperiod
     while True:
         step += 1
@@ -208,8 +209,14 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
             if longrangecheck!=None:
                 lrstep += 1
                 if lrstep%TRAINSETTINGS.LONGRANGEPERIOD == TRAINSETTINGS.LONGRANGEPERIOD-1:
-                    result = longrangecheck()
-                    modrec.Rfloat(result)
+                    try:
+                        result = longrangecheck()
+                        modrec.Rfloat(result)
+                    except KeyboardInterrupt: raise
+                    except SystemExit: raise
+                    except:
+                        import traceback
+                        traceback.print_exc()
             #Commit
             if modrec!=None:
                 modrec.C()
@@ -255,5 +262,7 @@ def makenet(inp):
     #OUTPUT
     outlayer = LCollect(ConvKeepLayer(rng, slayers[0], (shapetmpl[0].resp_shape[1], RECEPTIVE,RECEPTIVE), Nonlinear = False))
     return LPop(), outlayer
+
+
 
 
