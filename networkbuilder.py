@@ -119,7 +119,7 @@ def MPTwoAheadProducer(prodfuncstr):
 
 TRAINSETTINGS = new.classobj('settings',(),{})()
 
-def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fcheckgen=None,TOLTIMES=5,BATCHSTEP=10,LEARNRATEVAR=None,LEARNRATETARGET=10.0,LEARNADJUST=1.01, remotemonitor = False, sameranks = []):
+def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fcheckgen=None,TOLTIMES=5,BATCHSTEP=10,LEARNRATEVAR=None,LEARNRATETARGET=10.0,LEARNADJUST=1.01, remotemonitor = False, sameranks = [], longrangecheck = None, longrangeperiod = None):
     global TRAINSETTINGS
     TRAINSETTINGS.TOLTIMES = TOLTIMES
     TRAINSETTINGS.BATCHSTEP = BATCHSTEP
@@ -151,6 +151,10 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
     else:
         fdatagen = TwoAheadProducer(fdatagen)
     step = 0
+    lrstep = 0
+    if longrangecheck!=None and longrangeperiod==None:
+        longrangeperiod = BATCHSTEP
+        TRAINSETTINGS.LONGRANGEPERIOD = longrangeperiod
     while True:
         step += 1
         gen = fdatagen()
@@ -201,6 +205,11 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
                     tol=0
                 print "NEW LOSS",LOSS1
                 LOSS0 = LOSS1
+            if longrangecheck!=None:
+                lrstep += 1
+                if lrstep%TRAINSETTINGS.LONGRANGEPERIOD == TRAINSETTINGS.LONGRANGEPERIOD-1:
+                    result = longrangecheck()
+                    modrec.Rfloat(result)
             #Commit
             if modrec!=None:
                 modrec.C()

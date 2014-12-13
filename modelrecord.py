@@ -336,6 +336,10 @@ class Record:
         atexit.register(self.S)
         global RECORD_INSTANCE
         RECORD_INSTANCE = self
+        self.firstlayer = None
+        self.losslayer = None
+        self.custom = {}
+        self.metadirty = False
 
     def _makerecmap_data(self, datamapid):
         "内部——生成数据记录列"
@@ -444,6 +448,8 @@ class Record:
                 i.rec__struct_id = len(struct)
                 struct.append(ast)
                 structback.append(i)
+                if self.firstlayer==None: self.firstlayer = i
+                if self.losslayer==None and ast['hasloss']==1: self.losslayer = i
         
         refs = [0] * len(struct)
         
@@ -558,6 +564,56 @@ class Record:
                         #Store thisval as lastval
                         i.rec__lastval = thisval
     
+
+    def Rfloat(self,d,struct='loss',data='loss',rec='custom'):
+        """
+        记录单个数值
+        STRUCT: 记录在的网络层,特殊层名（'loss','first'）
+        DATA: 记录组数据类型
+        REC: 记录名
+        """
+        if struct=='loss':
+            if self.losslayer!=None: struct=self.losslayer
+            else: struct='first'
+        if isinstance(struct,(unicode,str)):
+            if self.firstlayer!=None: struct=self.firstlayer
+            else: return
+        if not isinstance(struct,layerbase.Layer): return
+        structid = struct.rec__struct_id
+        if (structid,data,rec) not in self.custom:
+            #Check if data exists
+            dataid = None
+            p = 0
+            for i in self.meta['datamap']:
+                tdataname = i['dataname'].split('_')
+                tdataname = tdataname[1] if tdataname[0]=='' else tdataname[0]
+                if tdataname==data and i['layerid']==structid:
+                    dataid = p
+                    break
+                p+=1
+            if dataid==None:
+                self.meta['datamap'].append({
+                    'dataname':data,
+                    'layerid':structid,
+                    'filtershape':(1,)})
+                dataid = p
+            recid = None
+            p = 0
+            for i in self.meta['recmap']:
+                if i['func']==data and i['dataid']==dataid:
+                    recid = p
+                    break
+                p+=1
+            if recid==None:
+                self.meta['recmap'].append({
+                    'dataid':dataid,
+                    'func':rec,
+                    'datatype':'float'})
+                recid = p
+            self.custom[(structid,data,rec)] = recid
+            self.metadirty = True
+        self.datastore.append([self.custom[(structid,data,rec)],d])
+
     def Rv(self):
         "可视化记录层"
         self._newrec()
@@ -654,7 +710,11 @@ class Record:
         statupload = _mystatrec()
         dataupload = self.dataupload
         #Call api to load data/stat/single image
-        self.rest.restcall('http://'+self.server+'/updateexp', {'expid':self.expid, 'info':self.signer.sign(json.dumps(statupload))},self._NewNameUpdate)
+        if self.metadirty:
+            self.rest.restcall('http://'+self.server+'/updateexp', {'expid':self.expid, 'info':self.signer.sign(json.dumps(statupload)),'metadata':self.signer.sign(json.dumps(self.meta))},self._NewNameUpdate)
+            self.metadirty = False
+        else:
+            self.rest.restcall('http://'+self.server+'/updateexp', {'expid':self.expid, 'info':self.signer.sign(json.dumps(statupload))},self._NewNameUpdate)
         self.rest.restcall('http://'+self.server+'/record', {'expid':self.expid, 'data':self.signer.sign(json.dumps(dataupload))})
         for meta,type_,data in self.imgstore:
             self.rest.restcall('http://'+self.server+'/recordimg', {'expid':self.expid,
