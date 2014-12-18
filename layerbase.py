@@ -317,7 +317,7 @@ class ConvKeepLayer(Layer, Param, VisLayer):
         #conv_out = conv_out[:,:,med[0]:-med[0],med[1]:-med[1]]
         if through!=None:
             if throughend==None:
-                conv_out = conv_out + self.input[:,through:through+filter_shape[1]]
+                conv_out = conv_out + self.input[:,through:through+filter_shape[0]]
             else:
                 conv_out = T.inc_subtensor(conv_out[:,0:throughend], self.input[:,through:throughend+through])
 
