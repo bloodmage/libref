@@ -303,9 +303,9 @@ class ConvKeepLayer(Layer, Param, VisLayer):
                   low=-np.sqrt(0.5/fan_in),
                   high=np.sqrt(0.5/fan_in),
                   size=filter_shape), dtype=theano.config.floatX)
-            if through!=None:
-                for i in range(filter_shape[0] if throughend==None else throughend):
-                    W_values[i,through+i,(filter_shape[2]-1)/2,(filter_shape[3]-1)/2]=1
+            #if through!=None:
+            #    for i in range(filter_shape[0] if throughend==None else throughend):
+            #        W_values[i,through+i,(filter_shape[2]-1)/2,(filter_shape[3]-1)/2]=1
             self.W = theano.shared(value=W_values, name='W_%s'%inc[0])
 
             b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
@@ -315,6 +315,11 @@ class ConvKeepLayer(Layer, Param, VisLayer):
                 filter_shape=filter_shape, image_shape=image_shape, border_mode="same")
         #Get middle area
         #conv_out = conv_out[:,:,med[0]:-med[0],med[1]:-med[1]]
+        if through!=None:
+            if throughend==None:
+                conv_out = T.inc_subtensor(conv_out,self.input[through:])
+            else:
+                conv_out = T.inc_subtensor(conv_out,self.input[through:throughend+through])
 
         self.output = nonlinear(conv_out + self.b.dimshuffle('x', 0, 'x', 'x'), Nonlinear)
         if zeroone:
