@@ -328,7 +328,10 @@ class ConvKeepLayer(Layer, Param, VisLayer):
         
 
         if not (dropout is False): #Embed a layerwise dropout layer
-            self.output = LayerbasedDropOut(self, dropoutrnd, dropout).output
+            if isinstance(dropout, tuple):
+                self.output = dropout[0](self, dropoutrnd, dropout[1]).output
+            else:
+                self.output = LayerbasedDropOut(self, dropoutrnd, dropout).output
         
         if shareLayer!=None:
             self.params = []
@@ -385,7 +388,10 @@ class ConcentrateConvKeepLayer(Layer, Param, VisLayer):
         
 
         if not (dropout is False): #Embed a layerwise dropout layer
-            self.output = LayerbasedDropOut(self, dropoutrnd, dropout).output
+            if isinstance(dropout, tuple):
+                self.output = dropout[0](self, dropoutrnd, dropout[1]).output
+            else:
+                self.output = LayerbasedDropOut(self, dropoutrnd, dropout).output
         
         if shareLayer!=None:
             self.params = []
