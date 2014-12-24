@@ -707,7 +707,7 @@ class BlurSquareLoss(Layer, VisLayer, LossLayer):
         flatinput = self.input.reshape((inputshape[0]*inputshape[1],inputshape[2],inputshape[3]))
         self.blurinput = sconv.conv2d(flatinput, self.kernel, (inputshape[0]*inputshape[1],inputshape[2],inputshape[3]), blurkernel.shape, 'full')
         diff = self.blurtargets - self.blurinput
-        self.loss = self.squareloss = T.sum((diff*diff) if mask==None else diff*diff*mask))
+        self.loss = self.squareloss = T.sum((diff*diff) if mask==None else (diff*diff*mask))
         self.output = targets
         self.output_shape = response.resp_shape
 
