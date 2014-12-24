@@ -25,6 +25,13 @@ GPUCORR_CONV = 3
 
 convmode = CUDNN_CONV
 
+CachedResults = {}
+def CachedInst(inststr):
+    global CachedResults
+    if inststr not in CachedResults:
+        CachedResults[inststr] = eval(inststr)
+    return CachedResults[inststr]
+
 def setconvmode(mode):
     global convmode
     convmode = mode
@@ -432,6 +439,7 @@ class LRN_AcrossMap(Layer,VisSamerank):
     
     def __init__(self, input, across, alpha = 1.0, beta = 1.0):
         assert across%2==1
+        Layer.linkstruct[input].append(self)
         self.output_shape = input.output_shape
         kernel = np.zeros((self.output_shape[1],self.output_shape[1]),theano.config.floatX)
         for i in range(self.output_shape[1]):
@@ -449,16 +457,14 @@ class LRN_InMap(Layer, VisSamerank):
     
     def __init__(self, input, arange, alpha = 1.0, beta = 1.0):
         assert arange%2==1
+        Layer.linkstruct[input].append(self)
         self.output_shape = input.output_shape
-        self.k = T.alloc(1.0, (1,1,arange,arange))
-
+        self.k = CachedInst('theano.shared(value=np.ones((1,1,%s,%s),theano.config.floatX))'%(arange,arange))
         flatshape = (input.output_shape[0]*input.output_shape[1],1,input.output_shape[2],input.output_shape[3])
         self.flatinput = T.reshape(input.output,flatshape)
         self.flatinput = self.flatinput*self.flatinput
 
-        conv_out = conv2d(self.flatinput, self.k, filter_shape=(1,1,arange,arange), image_shape=flatshape, border_mode='full')
-        if arange!=1:
-            conv_out = conv_out[:,:,arange/2:-arange/2,arange/2:-arange/2]
+        conv_out = conv2d(self.flatinput, self.k, filter_shape=(1,1,arange,arange), image_shape=flatshape, border_mode='same')
         conv_out = 1+conv_out * alpha / (arange*arange)
         if beta!=1.0:
             conv_out = conv_out ** beta
@@ -469,8 +475,9 @@ class LRN_VarianceInMap(Layer, VisSamerank):
 
     def __init__(self, input, arange, alpha = 1.0, beta = 1.0):
         assert arange%2==1
+        Layer.linkstruct[input].append(self)
         self.output_shape = input.output_shape
-        self.k = T.alloc(1.0, (1,1,arange,arange))
+        self.k = CachedInst('theano.shared(value=np.ones((1,1,%s,%s),theano.config.floatX))'%(arange,arange))
         from scipy.signal import sepfir2d
         divplain = np.ones((input.output_shape[2],input.output_shape[3]),theano.config.floatX)
         divcount = 1.0/sepfir2d(divplain,np.ones(arange,thano.config.floatX),np.ones(arange,theano.config.floatX)).reshape((1,input.output_shape[2],input.output_shape[3]))
@@ -478,12 +485,12 @@ class LRN_VarianceInMap(Layer, VisSamerank):
 
         flatshape = (input.output_shape[0]*input.output_shape[1],1,input.output_shape[2],input.output_shape[3])
         self.flatinput = T.reshape(input.output,flatshape)
-        conv_out = conv2d(self.flatinput, self.k, filter_shape=(1,1,arange,arange), image_shape=flatshape, border_mode='full')
+        conv_out = conv2d(self.flatinput, self.k, filter_shape=(1,1,arange,arange), image_shape=flatshape, border_mode='same')
         if arange!=1:
             conv_out = conv_out[:,:,arange/2:-arange/2,arange/2:-arange/2]
         mval = conv_out * self.divc
         self.flatinput = self.flatinput*self.flatinput
-        conv_out = conv2d(self.flatinput, self.k, filter_shape=(1,1,arange,arange), image_shape=flatshape, border_mode='full')
+        conv_out = conv2d(self.flatinput, self.k, filter_shape=(1,1,arange,arange), image_shape=flatshape, border_mode='same')
         if arange!=1:
             conv_out = conv_out[:,:,arange/2:-arange/2,arange/2:-arange/2]
         conv_out = conv_out - mval

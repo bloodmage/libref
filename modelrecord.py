@@ -85,10 +85,40 @@ def _bestsplit(val):
             return i,val/i
     return 1,val
 
+class PatchedStdout:
+    def __init__(self, mesg=''):
+        self.org = sys.stdout
+        self.newline = True
+        self.mesg = mesg
+        self.alarm('Header Patch Enabled without color')
+        sys.stdout = self
+    
+    def alarm(self, data):
+        self.org.write(data)
+        self.org.write('\n')
+    
+    def write(self, data):
+        dlines = data.split('\n')
+        for i in dlines[:-1]:
+            if self.newline:
+                self.org.write('[%s] '%self.mesg)
+            self.org.write(i)
+            self.org.write('\n')
+            self.newline = True
+        if len(dlines[-1])!=0:
+            if self.newline:
+                self.org.write('[%s] '%self.mesg)
+                self.org.flush()
+                self.newline = False
+            self.org.write(dlines[-1])
+    
+    def flush(self):
+        self.org.flush()
+    
+    def setmesg(self, mesg):
+        self.mesg = mesg
 try:
     from blessings import Terminal
-
-
     class PatchedStdout:
         def __init__(self, mesg=''):
             self.org = sys.stdout
@@ -125,41 +155,46 @@ try:
             self.org.flush()
         
         def setmesg(self, mesg):
-            self.mesg = mesg
-        
+            self.mesg = mesg   
 except:
-    class PatchedStdout:
-        def __init__(self, mesg=''):
-            self.org = sys.stdout
-            self.newline = True
-            self.mesg = mesg
-            self.alarm('Header Patch Enabled without Blessings')
-            sys.stdout = self
-        
-        def alarm(self, data):
-            self.org.write(data)
-            self.org.write('\n')
-        
-        def write(self, data):
-            dlines = data.split('\n')
-            for i in dlines[:-1]:
-                if self.newline:
-                    self.org.write('[%s] '%self.mesg)
-                self.org.write(i)
-                self.org.write('\n')
+
+    try:
+        import pyreadline
+        class PatchedStdout:
+            def __init__(self, mesg=''):
+                self.org = sys.stdout
+                self.term = pyreadline.console.Console()
                 self.newline = True
-            if len(dlines[-1])!=0:
-                if self.newline:
-                    self.org.write('[%s] '%self.mesg)
-                    self.org.flush()
-                    self.newline = False
-                self.org.write(dlines[-1])
-        
-        def flush(self):
-            self.org.flush()
-        
-        def setmesg(self, mesg):
-            self.mesg = mesg
+                self.mesg = mesg
+                self.alarm('Header Patch Enabled')
+                sys.stdout=self
+            
+            def alarm(self, data):
+                self.write('\033[1;33m'+data+'\033[0m')
+                self.write('\n')
+            
+            def write(self, data):
+                dlines = data.split('\n')
+                for i in dlines[:-1]:
+                    if self.newline:
+                        self.term.write_color('\033[0;32m[%s] \033[0m'%self.mesg)
+                    self.term.write_color(i)
+                    self.term.write_color('\n')
+                    self.newline = True
+                if len(dlines[-1])!=0:
+                    if self.newline:
+                        self.term.write_color('\033[0;32m[%s] \033[0m'%self.mesg)
+                        self.org.flush()
+                        self.newline = False
+                    self.term.write_color(dlines[-1])
+            
+            def flush(self):
+                self.org.flush()
+            
+            def setmesg(self, mesg):
+                self.mesg = mesg   
+    except:
+        pass
 
 if sys.platform == 'win32':
     import ctypes
