@@ -158,7 +158,7 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
         TRAINSETTINGS.LONGRANGEPERIOD = longrangeperiod
     while True:
         step += 1
-        if step>totalsteps: break
+        if TRAINSETTINGS.TOTALSTEPS!=None and step>TRAINSETTINGS.TOTALSTEPS: break
         gen = fdatagen()
         loss,upd = [float(t) for t in ftrain(*gen)]
         l += loss
