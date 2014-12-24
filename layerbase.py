@@ -25,11 +25,17 @@ GPUCORR_CONV = 3
 
 convmode = CUDNN_CONV
 
+def dtypeX(val):
+    return np.dtype(theano.config.floatX).type(val)
+
 CachedResults = {}
-def CachedInst(inststr):
+def CachedInst(inststr,efunc = None):
     global CachedResults
     if inststr not in CachedResults:
-        CachedResults[inststr] = eval(inststr)
+        if efunc==None:
+            CachedResults[inststr] = eval(inststr)
+        else:
+            CachedResults[inststr] = efunc()
     return CachedResults[inststr]
 
 def setconvmode(mode):

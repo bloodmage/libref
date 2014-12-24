@@ -16,11 +16,14 @@ def SetReshapeBroadcast(reshaping):
     global setBroadcastReshaping
     setBroadcastReshaping = reshaping
 def CachedAlloc(d, *shape):
-    global setBroadcastReshaping
-    if setBroadcastReshaping:
-        return T.patternbroadcast(T.alloc(d,*shape),(False,)*len(shape))
-    else:
-        return T.alloc(d,*shape)
+    #Use a cached shared variable
+    key = repr(d)+" > "+repr(shape)
+    def alloc():
+        buf = np.zeros(shape, dtype=np.dtype(theano.config.floatX))
+        tbuf = theano.shared(value=buf, name=key)
+        return tbuf
+    ret = CachedInst(key,alloc)
+    return ret
 
 def max_pool(bc01, pool_shape, pool_stride, image_shape):
     """
@@ -87,7 +90,7 @@ def max_pool(bc01, pool_shape, pool_stride, image_shape):
     required_c = last_pool_c + pc
 
 
-    wide_infinity = CachedAlloc(T.constant(-np.inf, dtype=config.floatX),
+    wide_infinity = T.alloc(dtypeX(-np.inf),
                             bc01.shape[0],
                             bc01.shape[1],
                             required_r,

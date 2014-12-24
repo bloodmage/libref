@@ -119,14 +119,14 @@ def MPTwoAheadProducer(prodfuncstr):
 
 TRAINSETTINGS = new.classobj('settings',(),{})()
 
-def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fcheckgen=None,TOLTIMES=5,BATCHSTEP=10,LEARNRATEVAR=None,LEARNRATETARGET=10.0,LEARNADJUST=1.01, remotemonitor = False, sameranks = [], longrangecheck = None, longrangeperiod = None):
+def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fcheckgen=None,TOLTIMES=5,BATCHSTEP=10,LEARNRATEVAR=None,LEARNRATETARGET=10.0,LEARNADJUST=1.01, remotemonitor = False, sameranks = [], longrangecheck = None, longrangeperiod = None,totalsteps = None):
     global TRAINSETTINGS
     TRAINSETTINGS.TOLTIMES = TOLTIMES
     TRAINSETTINGS.BATCHSTEP = BATCHSTEP
     TRAINSETTINGS.LEARNRATEVAR = LEARNRATEVAR
     TRAINSETTINGS.LEARNRATETARGET = LEARNRATETARGET
     TRAINSETTINGS.LEARNADJUST = LEARNADJUST
-
+    TRAINSETTINGS.TOTALSTEPS = totalsteps
     from layerbase import safefile
     import sys, os
     if remotemonitor!=False:
@@ -158,6 +158,7 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
         TRAINSETTINGS.LONGRANGEPERIOD = longrangeperiod
     while True:
         step += 1
+        if step>totalsteps: break
         gen = fdatagen()
         loss,upd = [float(t) for t in ftrain(*gen)]
         l += loss
