@@ -177,13 +177,13 @@ except:
                 dlines = data.split('\n')
                 for i in dlines[:-1]:
                     if self.newline:
-                        self.term.write_color('\033[0;32m[%s] \033[0m'%self.mesg)
+                        self.term.write_color('\033[0;31m[%s] \033[0m'%self.mesg)
                     self.term.write_color(i)
                     self.term.write_color('\n')
                     self.newline = True
                 if len(dlines[-1])!=0:
                     if self.newline:
-                        self.term.write_color('\033[0;32m[%s] \033[0m'%self.mesg)
+                        self.term.write_color('\033[0;31m[%s] \033[0m'%self.mesg)
                         self.org.flush()
                         self.newline = False
                     self.term.write_color(dlines[-1])

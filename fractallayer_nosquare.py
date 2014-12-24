@@ -6,7 +6,7 @@ import theano
 
 from theano import config
 from theano.sandbox.neighbours import images2neibs
-from layerbase import Layer, Param, VisLayer, LayerbasedDropOut, VisSamerank
+from layerbase import Layer, Param, VisLayer, LayerbasedDropOut, VisSamerank, CachedInst
 from theano.tensor.nnet import conv
 INF = 1e10
 b3tensor = T.TensorType(dtype = theano.config.floatX, broadcastable = [])

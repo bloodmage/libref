@@ -692,6 +692,24 @@ class CrossEntropyLoss(Layer, VisLayer, LossLayer):
         self.output = response.resp
         self.output_shape = response.resp_shape
 
+class BlurSquareLoss(Layer, VisLayer, LossLayer):
+    def __init__(self,input,response,blurkernel,inputshape=None,mask=None):
+        if isinstance(input, Layer):
+            self.input = input.output
+            Layer.linkstruct[input].append(self)
+            if inputshape==None: inputshape = input.output_shape
+        else:
+            self.input = input
+        self.kernel = theano.shared(blurkernel, name='LOSSKERNEL')
+        targets = response.resp
+        flattargets = targets.reshape((response.resp_shape[0]*response.resp_shape[1],response.resp_shape[2],response.resp_shape[3]))
+        self.blurtargets = sconv.conv2d(flattargets, self.kernel, (response.resp_shape[0]*response.resp_shape[1],response.resp_shape[2],response.resp_shape[3]), blurkernel.shape, 'full')
+        flatinput = self.input.reshape((inputshape[0]*inputshape[1],inputshape[2],inputshape[3]))
+        self.blurinput = sconv.conv2d(flatinput, self.kernel, (inputshape[0]*inputshape[1],inputshape[2],inputshape[3]), blurkernel.shape, 'full')
+        diff = self.blurtargets - self.blurinput
+        self.loss = self.squareloss = T.sum((diff*diff) if mask==None else diff*diff*mask))
+        self.output = targets
+        self.output_shape = response.resp_shape
 
 class SquareLoss(Layer, VisLayer, LossLayer):
 
