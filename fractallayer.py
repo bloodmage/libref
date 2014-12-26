@@ -316,9 +316,10 @@ class ShrinkshapeMeanFractal(Layer, VisSamerank):
         inputext = CachedAlloc(dtypeX(-INF), *shapeext)
 
         inputext = T.set_subtensor(inputext[:,:,1:input_shape[2]+1,1:input_shape[3]+1], self.input)
-        self.output = images2neibs(inputext, (3,3), (2,2), 'ignore_borders').mean(axis=-1)
-        
         self.output_shape = input_shape[0], input_shape[1], (input_shape[2]+1)/2, (input_shape[3]+1)/2
+
+        self.output = images2neibs(inputext, (3,3), (2,2), 'ignore_borders').mean(axis=-1)
+        self.output = T.patternbroadcast(self.output.reshape(self.output_shape),(False,)*4)
 
 class ShrinkshapeFractal(Layer):
 

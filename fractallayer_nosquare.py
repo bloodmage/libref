@@ -240,7 +240,7 @@ class ShrinkshapeMeanFractal(Layer, VisSamerank):
         self.output_shape = input_shape[0], input_shape[1], (input_shape[2]+1)/2, (input_shape[3]+1)/2
         
         self.output = images2neibs(inputext, (3,3), (2,2), 'ignore_borders').mean(axis=-1)
-        self.output = self.output.reshape(self.output_shape)
+        self.output = T.patternbroadcast(self.output.reshape(self.output_shape),(False,)*4)
         
 
 class ShrinkshapeFractal(Layer):
