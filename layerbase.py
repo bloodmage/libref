@@ -706,12 +706,13 @@ class BlurSquareLoss(Layer, VisLayer, LossLayer):
             if inputshape==None: inputshape = input.output_shape
         else:
             self.input = input
+        blurkernel = blurkernel.reshape((1,1)+blurkernel.shape).astype('f')
         self.kernel = theano.shared(blurkernel, name='LOSSKERNEL')
         targets = response.resp
-        flattargets = targets.reshape((response.resp_shape[0]*response.resp_shape[1],response.resp_shape[2],response.resp_shape[3]))
-        self.blurtargets = sconv.conv2d(flattargets, self.kernel, (response.resp_shape[0]*response.resp_shape[1],response.resp_shape[2],response.resp_shape[3]), blurkernel.shape, 'full')
-        flatinput = self.input.reshape((inputshape[0]*inputshape[1],inputshape[2],inputshape[3]))
-        self.blurinput = sconv.conv2d(flatinput, self.kernel, (inputshape[0]*inputshape[1],inputshape[2],inputshape[3]), blurkernel.shape, 'full')
+        flattargets = targets.reshape((response.resp_shape[0]*response.resp_shape[1],1,response.resp_shape[2],response.resp_shape[3]))
+        self.blurtargets = conv2d(flattargets, self.kernel, (response.resp_shape[0]*response.resp_shape[1],1,response.resp_shape[2],response.resp_shape[3]), blurkernel.shape, 'full')
+        flatinput = self.input.reshape((inputshape[0]*inputshape[1],1,inputshape[2],inputshape[3]))
+        self.blurinput = conv2d(flatinput, self.kernel, (inputshape[0]*inputshape[1],1,inputshape[2],inputshape[3]), blurkernel.shape, 'full')
         diff = self.blurtargets - self.blurinput
         self.loss = self.squareloss = T.sum((diff*diff) if mask==None else (diff*diff*mask))
         self.output = targets
