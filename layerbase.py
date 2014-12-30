@@ -671,6 +671,12 @@ class SymbolDataLayer(Layer, VisLayer):
         self.data = self.output
         self.label = self.resp
     
+class SymbolLayer(Layer, VisLayer):
+    def __init__(self,input,input_shape,input_link=None):
+        if input_link!=None:
+            Layer.linkstruct[input_link].append(self)
+        self.output = input
+        self.output_shape = input_shape
 
 class MaskedHengeLoss(Layer, VisLayer, LossLayer):
 
