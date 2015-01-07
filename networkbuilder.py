@@ -75,11 +75,16 @@ def __MPDrawFunc(vispath,queue):
     import PIL.Image
     from layerbase import DrawPatch
     import os
+    import numpy as np
     while True:
         draws,resp = queue.get()
         try:
             for layer,param,reshape in draws:
-                if len(param.shape)!=4:
+                if len(param.shape)==3:
+                    flatparam = param.reshape((param.shape[0]*param.shape[1],param.shape[2]))
+                    PIL.Image.fromarray(np.array((flatparam-np.min(flatparam))/(np.max(flatparam)-np.min(flatparam))*255,np.uint8)).save(os.path.join(vispath,'layer_%s.png'%layer))
+                    continue
+                if len(param.shape)==2:
                     if reshape!=None:
                         PIL.Image.fromarray(DrawPatch(param.reshape((-1,)+reshape[1:]))).save(os.path.join(vispath,'layer_%s.jpg'%layer), quality=100)
                     else:
@@ -90,7 +95,9 @@ def __MPDrawFunc(vispath,queue):
             layer = 0
             for i in resp:
                 layer += 1
-                if len(i.shape)!=4:
+                if len(i.shape)==3:
+                    i = i.reshape((i.shape[0]*i.shape[1],i.shape[2]))
+                if len(i.shape)==2:
                     PIL.Image.fromarray(np.array((i-np.min(i))/(np.max(i)-np.min(i))*255,np.uint8)).save(os.path.join(vispath,'resp%s.png'%layer))
                     continue
                 PIL.Image.fromarray(DrawPatch(i[0:1])).save(os.path.join(vispath,'resp%s.jpg'%layer), quality=100)
@@ -170,7 +177,7 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
         sys.stdout.write('.')
         sys.stdout.flush()
         if step % TRAINSETTINGS.BATCHSTEP == TRAINSETTINGS.BATCHSTEP-1:
-            print d,
+            print d,l,
             if TRAINSETTINGS.LEARNRATEVAR!=None:
                 lval = TRAINSETTINGS.LEARNRATEVAR.get_value()
                 if d>TRAINSETTINGS.LEARNRATETARGET*TRAINSETTINGS.BATCHSTEP: lval /= TRAINSETTINGS.LEARNADJUST
