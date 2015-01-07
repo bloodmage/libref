@@ -1,5 +1,8 @@
 import layerbase
-import fractallayer_nosquare as flayer
+try:
+    import fractallayer_nosquare as flayer
+except:
+    import fractallayer as flayer
 from fractallayer import dtypeX
 import new
 
@@ -143,9 +146,10 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
     LOSS0 = 1e100
     tol = 0
     l = d = 0
-    if not os.path.exists(vispath):
-        os.mkdir(vispath)
-    MPDrawInitializer(vispath)
+    if vispath!=None:
+        if not os.path.exists(vispath):
+            os.mkdir(vispath)
+        MPDrawInitializer(vispath)
     if isinstance(fdatagen, str):
         fdatagen = MPTwoAheadProducer(fdatagen)
     else:
@@ -178,16 +182,19 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
                 modrec.Rlt(l)
                 modrec.Rd()
             l = d = 0
-            print "DRAW"
-            #Draw model
-            drawlayers = []
-            layer = 0
-            for i in model.paramlayers():
-                if len(i.params)<1: continue
-                layer += 1
-                drawlayers.append((layer, i.params[0].get_value(), i.reshape if hasattr(i,'reshape') and i.reshape!=None else None))
-            resplayers = fvis(*gen) if fvis!=None else []
-            MPDrawWriter(drawlayers,resplayers)
+            if vispath!=None:
+                print "DRAW"
+                #Draw model
+                drawlayers = []
+                layer = 0
+                for i in model.paramlayers():
+                    if len(i.params)<1: continue
+                    layer += 1
+                    drawlayers.append((layer, i.params[0].get_value(), i.reshape if hasattr(i,'reshape') and i.reshape!=None else None))
+                resplayers = fvis(*gen) if fvis!=None else []
+                MPDrawWriter(drawlayers,resplayers)
+            else:
+                print
             #Check validset
             if fcheckgen!=None and fcheck!=None:
                 LOSS1 = 0.0
@@ -221,9 +228,9 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
             #Commit
             if modrec!=None:
                 modrec.C()
-        #Save model
-        with safefile(savename) as savef:
-            model.save(savef.wb())
+            #Save model
+            with safefile(savename) as savef:
+                model.save(savef.wb())
 
 def makenet(inp):
     """

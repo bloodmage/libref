@@ -194,7 +194,7 @@ class ConvLayer(Layer, Param, VisLayer):
                 image_shape[2]-filter_shape[2]+1 if isShrink else image_shape[2]+filter_shape[2]-1,
                 image_shape[3]-filter_shape[3]+1 if isShrink else image_shape[3]+filter_shape[3]-1)
         
-        if shareLayer!=None:
+        if shareLayer==None:
             self.params = [self.W, self.b]
         else:
             self.params = []
