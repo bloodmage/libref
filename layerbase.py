@@ -150,6 +150,8 @@ def nonlinear(input, nonlinear = 'tanh'):
         return input * (input > 0)
     elif nonlinear == 'sigmoid':
         return nnet.sigmoid(input)
+    elif nonlinear == 'softplus':
+        return nnet.softplus(input)
     elif nonlinear == 'linear' or not nonlinear:
         return input
     else:
@@ -459,6 +461,24 @@ class LRN_AcrossMap(Layer,VisSamerank):
             lpart = lpart ** beta
         self.output = input.output / lpart
 
+class LRN_AcrossMap1D(Layer,VisSamerank):
+    
+    def __init__(self, input, across, alpha = 1.0, beta = 1.0):
+        assert across%2==1
+        Layer.linkstruct[input].append(self)
+        self.output_shape = input.output_shape
+        kernel = np.zeros((self.output_shape[1],self.output_shape[1]),theano.config.floatX)
+        for i in range(self.output_shape[1]):
+            kernel[max(0,i-across/2):min(self.output_shape[1],i+across/2+1),i]=1.0
+        self.k = theano.shared(value=kernel,name="LRN_kern_%s_%s"%(self.output_shape[1],across))
+        
+        osqr = input.output*input.output
+        lpart = T.reshape(T.dot(T.reshape(osqr.dimshuffle(0,2,1),(self.output_shape[0]*self.output_shape[2],self.output_shape[1])), self.k),(self.output_shape[0],self.output_shape[2],self.output_shape[1])).dimshuffle(0,2,1) * alpha / across + 1
+        #lpart = conv2d(osqr, self.k, filter_shape = kernel.shape, image_shape=input.output_shape)*alpha / across + 1
+        if beta!=1.0:
+            lpart = lpart ** beta
+        self.output = input.output / lpart
+
 class LRN_InMap(Layer, VisSamerank):
     
     def __init__(self, input, arange, alpha = 1.0, beta = 1.0):
@@ -723,8 +743,8 @@ class SquareLoss(Layer, VisLayer, LossLayer):
     def __init__(self,input,response,mask=None):
         Layer.linkstruct[input].append(self)
         targets = response.resp
-        self.loss = self.squareloss = T.sum((targets-input.output)*(targets-input.output)*(1 if mask==None else mask))
-        self.output = targets
+        self.output = (targets-input.output)*(targets-input.output)*(1 if mask==None else mask)
+        self.loss = self.squareloss = T.sum(self.output)
         self.output_shape = response.resp_shape
 
 class SSIMLoss(Layer, VisLayer, LossLayer):

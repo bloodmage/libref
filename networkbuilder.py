@@ -5,6 +5,7 @@ except:
     import fractallayer as flayer
 from fractallayer import dtypeX
 import new
+import numpy as np
 
 def RepeatNetworkBuilder(inp,build,repeat,*args,**kwargs):
     layers = []
@@ -70,18 +71,29 @@ def __MPWorkerFunc(invokestr,queue):
     while True:
         queue.put(fobj())
 
+cachedbalance = {}
+def balancef(vmul,va):
+    global cachedbalance
+    if (vmul,va) not in cachedbalance:
+        divmax = int(np.sqrt(vmul*va)/va)
+        i=1
+        for i in range(divmax,0,-1):
+            if vmul%i==0: break
+        cachedbalance[(vmul,va)] = i
+    return cachedbalance[(vmul,va)]
+
 def __MPDrawFunc(vispath,queue):
     import PIL
     import PIL.Image
     from layerbase import DrawPatch
     import os
-    import numpy as np
     while True:
         draws,resp = queue.get()
         try:
             for layer,param,reshape in draws:
                 if len(param.shape)==3:
-                    flatparam = param.reshape((param.shape[0]*param.shape[1],param.shape[2]))
+                    f = balancef(param.shape[0]*param.shape[1], param.shape[2])
+                    flatparam = param.reshape((param.shape[0]*param.shape[1]/f,param.shape[2]*f))
                     PIL.Image.fromarray(np.array((flatparam-np.min(flatparam))/(np.max(flatparam)-np.min(flatparam))*255,np.uint8)).save(os.path.join(vispath,'layer_%s.png'%layer))
                     continue
                 if len(param.shape)==2:
@@ -96,7 +108,8 @@ def __MPDrawFunc(vispath,queue):
             for i in resp:
                 layer += 1
                 if len(i.shape)==3:
-                    i = i.reshape((i.shape[0]*i.shape[1],i.shape[2]))
+                    f = balancef(i.shape[0]*i.shape[1], i.shape[2])
+                    i = i.reshape((i.shape[0]*i.shape[1]/f,i.shape[2]*f))
                 if len(i.shape)==2:
                     PIL.Image.fromarray(np.array((i-np.min(i))/(np.max(i)-np.min(i))*255,np.uint8)).save(os.path.join(vispath,'resp%s.png'%layer))
                     continue
@@ -106,26 +119,31 @@ def __MPDrawFunc(vispath,queue):
 
 drawqueue = None
 def MPDrawInitializer(vispath):
+    global drawqueue
+    if drawqueue!=None: return
     import multiprocessing
     dataqueue = multiprocessing.Queue(1)
     p = multiprocessing.Process(target=__MPDrawFunc, args=(vispath,dataqueue))
     p.daemon = True
     p.start()
-    global drawqueue
     drawqueue = dataqueue
 def MPDrawWriter(*data):
     global drawqueue
     drawqueue.put(data)
 
+mpaheadprods = {}
 def MPTwoAheadProducer(prodfuncstr):
-    import multiprocessing
-    dataqueue = multiprocessing.Queue(1)
-    p = multiprocessing.Process(target=__MPWorkerFunc, args=(prodfuncstr, dataqueue))
-    p.daemon = True
-    p.start()
-    def gen():
-        return dataqueue.get()
-    return gen
+    global mpaheadprods
+    if prodfuncstr not in mpaheadprods:
+        import multiprocessing
+        dataqueue = multiprocessing.Queue(1)
+        p = multiprocessing.Process(target=__MPWorkerFunc, args=(prodfuncstr, dataqueue))
+        p.daemon = True
+        p.start()
+        def gen():
+            return dataqueue.get()
+        mpaheadprods[prodfuncstr] = gen
+    return mpaheadprods[prodfuncstr]
 
 TRAINSETTINGS = new.classobj('settings',(),{})()
 
