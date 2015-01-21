@@ -1,9 +1,3 @@
-import layerbase
-try:
-    import fractallayer_nosquare as flayer
-except:
-    import fractallayer as flayer
-from fractallayer import dtypeX
 import new
 import numpy as np
 
@@ -16,6 +10,10 @@ def RepeatNetworkBuilder(inp,build,repeat,*args,**kwargs):
     return layers, outs
 
 def HIMBuilder(low,mid,high,midtmpl):
+    try:
+        import fractallayer_nosquare as flayer
+    except:
+        import fractallayer as flayer
     aggregate = [mid]
     layers = []
     if low!=None:
@@ -53,7 +51,7 @@ def LPop():
 
 def TwoAheadProducer(prodfunc):
     import threading, Queue
-    dataqueue = Queue.Queue(1)
+    dataqueue = Queue.Queue(10)
     def producer():
         while True:
             dataqueue.put(prodfunc())
@@ -91,16 +89,15 @@ def __MPDrawFunc(vispath,queue):
         draws,resp = queue.get()
         try:
             for layer,param,reshape in draws:
+                if reshape!=None:
+                    param = param.reshape((-1,)+reshape[1:])
                 if len(param.shape)==3:
                     f = balancef(param.shape[0]*param.shape[1], param.shape[2])
                     flatparam = param.reshape((param.shape[0]*param.shape[1]/f,param.shape[2]*f))
                     PIL.Image.fromarray(np.array((flatparam-np.min(flatparam))/(np.max(flatparam)-np.min(flatparam))*255,np.uint8)).save(os.path.join(vispath,'layer_%s.png'%layer))
                     continue
                 if len(param.shape)==2:
-                    if reshape!=None:
-                        PIL.Image.fromarray(DrawPatch(param.reshape((-1,)+reshape[1:]))).save(os.path.join(vispath,'layer_%s.jpg'%layer), quality=100)
-                    else:
-                        PIL.Image.fromarray(np.array((param-np.min(param))/(np.max(param)-np.min(param))*255,np.uint8)).save(os.path.join(vispath,'layer_%s.png'%layer))
+                    PIL.Image.fromarray(np.array((param-np.min(param))/(np.max(param)-np.min(param))*255,np.uint8)).save(os.path.join(vispath,'layer_%s.png'%layer))
                     continue
                 PIL.Image.fromarray(DrawPatch(param)).save(os.path.join(vispath,'layer_%s.jpg'%layer), quality=100)
             #Draw response
@@ -138,11 +135,11 @@ def MPTwoAheadProducer(prodfuncstr):
         import multiprocessing
         dataqueue = multiprocessing.Queue(1)
         p = multiprocessing.Process(target=__MPWorkerFunc, args=(prodfuncstr, dataqueue))
-        p.daemon = True
+        p.daemon = False
         p.start()
         def gen():
             return dataqueue.get()
-        mpaheadprods[prodfuncstr] = gen
+        mpaheadprods[prodfuncstr] = TwoAheadProducer(gen)
     return mpaheadprods[prodfuncstr]
 
 TRAINSETTINGS = new.classobj('settings',(),{})()
@@ -157,6 +154,7 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
     TRAINSETTINGS.TOTALSTEPS = totalsteps
     from layerbase import safefile
     import sys, os
+    from fractallayer import dtypeX
     if remotemonitor!=False:
         import modelrecord
         if remotemonitor==None: modrec = remotemonitor.Record()
@@ -188,8 +186,18 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
     while True:
         step += 1
         if TRAINSETTINGS.TOTALSTEPS!=None and step>TRAINSETTINGS.TOTALSTEPS: break
-        gen = fdatagen()
-        loss,upd = [float(t) for t in ftrain(*gen)]
+        while True:
+            try:
+                gen = fdatagen()
+                loss,upd = [float(t) for t in ftrain(*gen)]
+                break
+            except KeyboardInterrupt:raise
+            except SystemExit:raise
+            except:
+                import traceback
+                traceback.print_exc()
+                sys.stdout.write('*')
+                continue
         l += loss
         d += upd
         sys.stdout.write('.')

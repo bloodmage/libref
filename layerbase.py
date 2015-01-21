@@ -678,8 +678,12 @@ class DataLayer(Layer, VisLayer):
 class SymbolDataLayer(Layer, VisLayer):
 
     def __init__(self, datashape, respshape, batch_size):
-        self.output = T.tensor4('data')
-        self.output_shape = (batch_size, datashape[1], datashape[2], datashape[3])
+        if len(respshape)==4:
+            self.output = T.tensor4('data')
+            self.output_shape = (batch_size, datashape[1], datashape[2], datashape[3])
+        else:
+            self.output = T.matrix('data')
+            self.output_shape = (batch_size, datashape[1])
         if len(respshape)==4:
             self.resp = T.tensor4('resp')
             self.resp_shape = (batch_size, respshape[1], respshape[2], respshape[3])
@@ -697,6 +701,12 @@ class SymbolLayer(Layer, VisLayer):
             Layer.linkstruct[input_link].append(self)
         self.output = input
         self.output_shape = input_shape
+
+class PassLayer(Layer):
+    def __init__(self,input,*args,**kwargs):
+        Layer.linkstruct[input].append(self)
+        self.output = input.output
+        self.output_shape = input.output_shape
 
 class MaskedHengeLoss(Layer, VisLayer, LossLayer):
 
@@ -743,9 +753,10 @@ class SquareLoss(Layer, VisLayer, LossLayer):
     def __init__(self,input,response,mask=None):
         Layer.linkstruct[input].append(self)
         targets = response.resp
-        self.output = (targets-input.output)*(targets-input.output)*(1 if mask==None else mask)
-        self.loss = self.squareloss = T.sum(self.output)
+        output = (targets-input.output)*(1 if mask==None else mask)
+        self.loss = self.squareloss = T.sum(output*output)
         self.output_shape = response.resp_shape
+        self.output = targets
 
 class SSIMLoss(Layer, VisLayer, LossLayer):
     
@@ -821,6 +832,146 @@ class LabelLoss(Layer, VisLayer, LossLayer):
         self.loss = -(input.output * truth.resp).sum()
         self.output = truth.resp
         self.output_shape = truth.output_shape
+
+def conv1d(data,kern,border_mode='valid',image_shape=None,filter_shape=None):
+    return conv2d(data.reshape((data.shape[0],data.shape[1],1,data.shape[2])),kern.reshape((kern.shape[0],kern.shape[1],1,kern.shape[2])),image_shape,filter_shape,border_mode)[:,:,0,:]
+
+class Conv1DLayer(Layer,Param,VisLayer):
+
+    def __init__(self, rng, input, filter_shape, image_shape = None, isShrink = True, Nonlinear = "tanh", zeroone = False, inc=[0], shareLayer = None):
+        if isinstance(input, Layer):
+            self.input = input.output 
+            Layer.linkstruct[input].append(self)
+            if image_shape==None:
+                image_shape = input.output_shape
+        else:
+            self.input = input
+        assert image_shape[1] == filter_shape[1]
+        fan_in = np.prod(filter_shape[1:])
+        if shareLayer!=None:
+            self.W = shareLayer.W
+            self.b = shareLayer.b
+        else:
+            W_values = np.asarray(rng.uniform(
+                  low=-np.sqrt(0.01/fan_in),
+                  high=np.sqrt(0.01/fan_in),
+                  size=filter_shape), dtype=theano.config.floatX)
+            self.W = theano.shared(value=W_values, name='W_%s'%inc[0])
+            b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
+            self.b = theano.shared(value=b_values, name='b_%s'%inc[0])
+        conv_out = conv1d(self.input, self.W,
+                filter_shape=filter_shape, image_shape=image_shape, border_mode="valid" if isShrink else "full")
+        self.output = nonlinear(conv_out + self.b.dimshuffle('x', 0, 'x'), Nonlinear)
+        if zeroone:
+            self.output = (self.output+1) * 0.5
+
+        self.output_shape = (image_shape[0], filter_shape[0],
+                image_shape[2]-filter_shape[2]+1 if isShrink else image_shape[2]+filter_shape[2]-1)
+        
+        if shareLayer==None:
+            self.params = [self.W, self.b]
+        else:
+            self.params = []
+
+        inc[0] = inc[0]+1
+
+class Maxpool1DLayer(Layer,VisSamerank):
+
+    def __init__(self, input, max_pool_size = 2, max_pool_stride = None, image_shape = None):
+
+        if isinstance(input, Layer):
+            self.input = input.output
+            Layer.linkstruct[input].append(self)
+            if image_shape==None:
+                image_shape = input.output_shape
+        else:
+            self.input = input
+        if max_pool_stride==None: max_pool_stride = max_pool_size
+
+        def last_pool(im_shp, p_shp, p_strd):
+            rval = int(np.ceil(float(im_shp - p_shp) / p_strd))
+            assert p_strd * rval + p_shp >= im_shp
+            assert p_strd * (rval - 1) + p_shp < im_shp
+            return rval
+        # Compute starting row of the last pool
+        last_pool_r = last_pool(image_shape[2],
+                                max_pool_size,
+                                max_pool_stride) * max_pool_stride
+        # Compute number of rows needed in image for all indexes to work out
+        required_r = last_pool_r + max_pool_size
+        #print last_pool_r,max_pool_size
+
+        wide_infinity = T.alloc(dtypeX(-np.inf),
+                                image_shape[0],
+                                image_shape[1],
+                                required_r)
+        winput = T.set_subtensor(wide_infinity[:,:,0:image_shape[2]], self.input)
+        mx = None
+        for row_within_pool in xrange(max_pool_size):
+            row_stop = last_pool_r + row_within_pool + 1
+            #print row_within_pool,row_stop,max_pool_stride
+            cur = winput[:,
+                       :,
+                       row_within_pool:row_stop:max_pool_stride]
+            if mx is None:
+                mx = cur
+            else:
+                mx = T.maximum(mx, cur)
+
+        self.output = mx
+        self.output_shape = (image_shape[0], image_shape[1], (last_pool_r + max_pool_stride)/max_pool_stride)
+
+class Reshape1D1DLayer(Layer, VisSamerank, VisLayer):
+
+    def __init__(self, input, image_shape = None):
+
+        if isinstance(input, Layer):
+            self.input = input.output
+            Layer.linkstruct[input].append(self)
+            if image_shape==None:
+                image_shape = input.output_shape
+        else:
+            self.input = input
+        
+        self.output = T.reshape(self.input,(image_shape[0],image_shape[1]*image_shape[2]))
+        self.output_shape = (image_shape[0],image_shape[1]*image_shape[2])
+
+class Aggregation1DLayer(Layer):
+
+    def __init__(self, *layers):
+
+        channels = 0
+        for i in layers:
+            assert isinstance(i, Layer)
+            channels += i.output_shape[1]
+
+        self.output_shape = layers[0].output_shape[0], channels, layers[0].output_shape[2]
+        self.output = CachedAlloc(dtypeX(0.0), *self.output_shape)
+        channels = 0
+        for i in layers:
+            Layer.linkstruct[i].append(self)
+            self.output = T.set_subtensor(self.output[:,channels:channels+i.output_shape[1]], i.output)
+            channels += i.output_shape[1]
+
+class Symbol1DDataLayer(Layer, VisLayer):
+
+    def __init__(self, datashape, respshape = None, batch_size = None):
+        self.output = T.tensor3('data')
+        if batch_size == None:
+            batch_size = respshape
+            respshape = None
+        self.output_shape = (batch_size, datashape[1], datashape[2])
+        if respshape != None:
+            if len(respshape)==3:
+                self.resp = T.tensor3('resp')
+                self.resp_shape = (batch_size, respshape[1], respshape[2])
+            else:
+                self.resp = T.matrix('resp')
+                self.resp_shape = (batch_size, respshape[1])
+            self.label = self.resp
+        self.n_batches = datashape[0] / batch_size
+        self.batch_size = batch_size
+        self.data = self.output
 
 def makesoftmaxlabel(raw, threshold = 50):
     processed = np.zeros((raw.shape[0]*raw.shape[2]*raw.shape[3],raw.shape[1]+1),'f')
