@@ -432,6 +432,22 @@ class MulNonlinearLayer(Layer,VisSamerank):
         self.output = nonlinear(self.linput*self.rinput, outnonlinear)
         self.output_shape = image_shape[0], image_shape[1]/2, image_shape[2], image_shape[3]
 
+class MulMuxLayer(Layer, VisSamerank):
+    def __init__(self, input1, input2):
+        assert input1.output_shape == input2.output_shape
+        Layer.linkstruct[input1].append(self)
+        Layer.linkstruct[input2].append(self)
+        self.output = input1.output*input2.output
+        self.output_shape = input1.output_shape
+
+class AddMuxLayer(Layer, VisSamerank):
+    def __init__(self, input1, input2):
+        assert input1.output_shape == input2.output_shape
+        Layer.linkstruct[input1].append(self)
+        Layer.linkstruct[input2].append(self)
+        self.output = input1.output+input2.output
+        self.output_shape = input1.output_shape
+
 def MulConvHelper(convlayer):
     if len(convlayer.params)==2:
         w,b = convlayer.params
@@ -1063,6 +1079,15 @@ class Model:
             init = np.zeros_like(i.get_value())
             q.append(theano.shared(init, name=i.name+'_momentum'))
         return q
+
+    def loss(self):
+        return self.losslayer().loss
+
+    def losslayer(self):
+        for i in self.layers:
+            if isinstance(i, LossLayer):
+                return i
+        return None
 
 def DrawPatch(block, blknorm = True):
     EPS = 1e-10
