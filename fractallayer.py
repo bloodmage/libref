@@ -409,7 +409,7 @@ class AggregationLayer(Layer):
             self.output = T.set_subtensor(self.output[:,channels:channels+i.output_shape[1]], i.output)
             channels += i.output_shape[1]
 
-from layerbase import ConvKeepLayer
+from layerbase import ConvKeepLayer, AggregationLayer
 
 if __name__=="__main__":
     import numpy as np

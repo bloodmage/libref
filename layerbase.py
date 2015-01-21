@@ -953,6 +953,21 @@ class Aggregation1DLayer(Layer):
             self.output = T.set_subtensor(self.output[:,channels:channels+i.output_shape[1]], i.output)
             channels += i.output_shape[1]
 
+class AggregationLayer(Layer):
+
+    def __init__(self, *layers):
+
+        channels = 0
+        for i in layers:
+            assert isinstance(i, Layer)
+            channels += i.output_shape[1]
+
+        self.output_shape = (layers[0].output_shape[0], channels) + tuple(layers[0].output_shape[2:])
+        self.output = T.concatenate([i.output for i in layers], axis=1)
+        for i in layers:
+            Layer.linkstruct[i].append(self)
+Aggregation1DLayer = AggregationLayer
+
 class Symbol1DDataLayer(Layer, VisLayer):
 
     def __init__(self, datashape, respshape = None, batch_size = None):
