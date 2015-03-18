@@ -142,6 +142,7 @@ class Param: pass
 class VisLayer: pass
 class LossLayer: pass
 class VisSamerank: pass
+class NParam: pass
 
 def nonlinear(input, nonlinear = 'tanh'):
     if nonlinear == 'tanh' or nonlinear == True:
@@ -1036,6 +1037,9 @@ class Model:
             if isinstance(i,Param):
                 for j in i.params:
                     params['%s_%s'%(idx,j.name)] = j.get_value()
+            if isinstance(i,NParam):
+                for j in i.nparams:
+                    params['%s_NP'%idx] = j
         np.savez(fileobj, **params)
 
     def load(self, fileobj):
@@ -1052,6 +1056,12 @@ class Model:
                         j.set_value(d)
                     except:
                         print "CANNOT SET",'%s_%s'%(idx,j.name)
+            if isinstance(i,NParam):
+                for j in i.nparams:
+                    try:
+                        j[:] = obj['%s_NP'%idx]
+                    except:
+                        print "CANNOT SET",'%s_NP'%idx
     
     def outputs(self):
         p = []
