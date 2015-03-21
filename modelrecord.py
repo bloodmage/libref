@@ -579,13 +579,15 @@ class Record:
 
     def Rlt(self, loss):
         "记录训练集loss"
-        self._newrec()
-        self.datastore.append([self.loss[0], float(loss)])
+        if getattr(self,'loss',None):
+            self._newrec()
+            self.datastore.append([self.loss[0], float(loss)])
 
     def Rlv(self, loss):
         "记录验证集loss"
-        self._newrec()
-        self.datastore.append([self.loss[1], float(loss)])
+        if getattr(self,'loss',None):
+            self._newrec()
+            self.datastore.append([self.loss[1], float(loss)])
 
     def Rd(self):
         "记录层信息有效更新值"
