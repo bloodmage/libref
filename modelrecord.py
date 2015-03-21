@@ -357,6 +357,15 @@ class AsyncRest:
     def join(self):
         self.pool.join()
 
+def VALIDIZE(d):
+    r = []
+    for i in d:
+        if isinstance(i,int):
+            r.append(i)
+        else:
+            r.append(-1)
+    return r
+
 RECORD_INSTANCE = None
 class Record:
     "实验记录，将进行的实验数据传至服务器"
@@ -450,7 +459,7 @@ class Record:
                    'type':i.__class__.__name__,
                    'name':i.rec__name,
                    'outputs': layerbase.Layer.linkstruct[i],
-                   'outshape': i.output_shape,
+                   'outshape': VALIDIZE(i.output_shape),
                    'hasparam': 0,
                    'hasloss': 0,
                    'hasvis': 0}
@@ -470,7 +479,7 @@ class Record:
                     i.rec__visparam = self._makerecmap_visresp(len(datamap))
                     params = {'dataname': '_vis_'+i.rec__name,
                             'layerid': len(struct),
-                            'filtershape': i.output_shape}
+                            'filtershape': VALIDIZE(i.output_shape)}
                     datamap.append(params)
                     ast['hasvis'] = 1
                 if isinstance(i,layerbase.LossLayer):
