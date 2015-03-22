@@ -119,7 +119,7 @@ def MPDrawInitializer(vispath):
     global drawqueue
     if drawqueue!=None: return
     import multiprocessing
-    dataqueue = multiprocessing.Queue(1)
+    dataqueue = multiprocessing.Queue(2)
     p = multiprocessing.Process(target=__MPDrawFunc, args=(vispath,dataqueue))
     p.daemon = True
     p.start()
@@ -131,12 +131,16 @@ def MPDrawWriter(*data):
 mpaheadprods = {}
 def MPTwoAheadProducer(prodfuncstr):
     global mpaheadprods
+    insts = 1
+    if isinstance(prodfuncstr,(tuple,list)):
+        prodfuncstr, insts = prodfuncstr
     if prodfuncstr not in mpaheadprods:
         import multiprocessing
-        dataqueue = multiprocessing.Queue(1)
-        p = multiprocessing.Process(target=__MPWorkerFunc, args=(prodfuncstr, dataqueue))
-        p.daemon = False
-        p.start()
+        dataqueue = multiprocessing.Queue(2)
+        for inst in range(insts):
+            p = multiprocessing.Process(target=__MPWorkerFunc, args=(prodfuncstr, dataqueue))
+            p.daemon = True
+            p.start()
         def gen():
             return dataqueue.get()
         mpaheadprods[prodfuncstr] = TwoAheadProducer(gen)
@@ -173,7 +177,7 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
         if not os.path.exists(vispath):
             os.mkdir(vispath)
         MPDrawInitializer(vispath)
-    if isinstance(fdatagen, str):
+    if isinstance(fdatagen, (str,tuple,list)):
         fdatagen = MPTwoAheadProducer(fdatagen)
     else:
         fdatagen = TwoAheadProducer(fdatagen)
