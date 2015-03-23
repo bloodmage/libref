@@ -226,8 +226,16 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
                 layer = 0
                 for i in model.paramlayers():
                     if len(i.params)<1: continue
-                    layer += 1
-                    drawlayers.append((layer, i.params[0].get_value(), i.reshape if hasattr(i,'reshape') and i.reshape!=None else None))
+                    if len(i.params)>2:
+                        for j in i.params:
+                            s = j.get_value()
+                            vsh = [i for i in s.shape if i>1]
+                            if len(vsh)<2: continue
+                            layer += 1
+                            drawlayers.append((layer, s, None))
+                    else:
+                        layer += 1
+                        drawlayers.append((layer, i.params[0].get_value(), i.reshape if hasattr(i,'reshape') and i.reshape!=None else None))
                 resplayers = fvis(*gen) if fvis!=None else []
                 MPDrawWriter(drawlayers,resplayers)
             else:
