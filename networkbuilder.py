@@ -108,10 +108,11 @@ def __MPDrawFunc(vispath,queue):
                 if reshape!=None:
                     param = param.reshape((-1,)+reshape[1:])
                 if len(param.shape)==3:
-                    f = balancef(param.shape[0]*param.shape[1], param.shape[2])
-                    flatparam = param.reshape((param.shape[0]*param.shape[1]/f,param.shape[2]*f))
-                    PIL.Image.fromarray(np.array((flatparam-np.min(flatparam))/(np.max(flatparam)-np.min(flatparam))*255,np.uint8)).save(os.path.join(vispath,'layer_%s.png'%layer))
-                    continue
+                    param = param.reshape((1,)+param.shape)
+                    #f = balancef(param.shape[0]*param.shape[1], param.shape[2])
+                    #flatparam = param.reshape((param.shape[0]*param.shape[1]/f,param.shape[2]*f))
+                    #PIL.Image.fromarray(np.array((flatparam-np.min(flatparam))/(np.max(flatparam)-np.min(flatparam))*255,np.uint8)).save(os.path.join(vispath,'layer_%s.png'%layer))
+                    #continue
                 if len(param.shape)==2:
                     PIL.Image.fromarray(np.array((param-np.min(param))/(np.max(param)-np.min(param))*255,np.uint8)).save(os.path.join(vispath,'layer_%s.png'%layer))
                     continue
@@ -121,8 +122,9 @@ def __MPDrawFunc(vispath,queue):
             for i in resp:
                 layer += 1
                 if len(i.shape)==3:
-                    f = balancef(i.shape[0]*i.shape[1], i.shape[2])
-                    i = i.reshape((i.shape[0]*i.shape[1]/f,i.shape[2]*f))
+                    i = i.reshape((1,)+i.shape)
+                    #f = balancef(i.shape[0]*i.shape[1], i.shape[2])
+                    #i = i.reshape((i.shape[0]*i.shape[1]/f,i.shape[2]*f))
                 if len(i.shape)==2:
                     PIL.Image.fromarray(np.array((i-np.min(i))/(np.max(i)-np.min(i))*255,np.uint8)).save(os.path.join(vispath,'resp%s.png'%layer))
                     continue
