@@ -1,5 +1,6 @@
 import new
 import numpy as np
+import math
 
 def RepeatNetworkBuilder(inp,build,repeat,*args,**kwargs):
     layers = []
