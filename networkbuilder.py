@@ -80,10 +80,26 @@ def balancef(vmul,va):
         cachedbalance[(vmul,va)] = i
     return cachedbalance[(vmul,va)]
 
+def DrawPatch(block, blknorm = True):
+    EPS = 1e-10
+    flatblk = np.copy(block.reshape((-1,block.shape[2],block.shape[3])))
+    if blknorm:
+        flatblk = (flatblk - np.min(flatblk)) / (np.max(flatblk) - np.min(flatblk)+EPS)
+    else:
+        flatblk = (flatblk-np.min(flatblk, axis=(1,2), keepdims=True)) / (np.max(flatblk, axis=(1,2), keepdims=True) - np.min(flatblk, axis=(1,2), keepdims=True)+EPS)
+
+    width = math.ceil(math.sqrt(flatblk.shape[0]))
+    height = (flatblk.shape[0] + width - 1) // width
+    canvas = np.zeros((height*block.shape[2]+height-1,width*block.shape[3]+width-1),'f')
+    for i in range(flatblk.shape[0]):
+        y = i // width
+        x = i % width
+        canvas[y*block.shape[2]+y:(y+1)*block.shape[2]+y,x*block.shape[3]+x:(x+1)*block.shape[3]+x] = flatblk[i]
+    return np.array(canvas*255,np.uint8)
+
 def __MPDrawFunc(vispath,queue):
     import PIL
     import PIL.Image
-    from layerbase import DrawPatch
     import os
     while True:
         draws,resp = queue.get()
