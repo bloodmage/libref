@@ -259,16 +259,16 @@ class TakeLayer(Layer, Param, RNGMiddleware):
             self.params = [self.taketable]
 
 class HuffmannLossLayer(Layer, LossLayer):
-    def __init__(self, input, target, huffmannconf):
+    def __init__(self, input, target, huffmannconf, extmask = 1):
         #Config to gpu
-        huffmannmults = [[1 if j!='x' else 0 for j in i] for i, _ in huffmannconf]
-        huffmannapps = [[1 if j=='1' else 0 for j in i] for i, _ in huffmannconf]
+        huffmannmults = np.array([[1 if j!=' ' else 0 for j in i] for _, i in huffmannconf],'f')
+        huffmannapps = np.array([[1 if j=='1' else 0 for j in i] for _, i in huffmannconf],'f')
 
         #Loss function: bits not correct
         features = huffmannapps.take(target.resp.flatten(), axis=0)
         masks = huffmannmults.take(target.resp.flatten(), axis=0)
         tocmp = input.output.dimshuffle(0, *range(2,len(input.output_shape)), 1).flatten()
-        self.loss = T.sum((features - tocmp)**2 * masks)
+        self.loss = T.sum((features - tocmp)**2 * masks * extmask)
 
         self.output = target.resp
         self.output_shape = target.resp_shape
