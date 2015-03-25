@@ -267,7 +267,7 @@ class HuffmannLossLayer(Layer, LossLayer):
         #Loss function: bits not correct
         features = huffmannapps.take(target.resp.flatten(), axis=0)
         masks = huffmannmults.take(target.resp.flatten(), axis=0)
-        tocmp = input.output.dimshuffle(0, *range(2,len(input.output_shape)), 1).flatten()
+        tocmp = input.output.dimshuffle(*((0,)+tuple(range(2,len(input.output_shape)))+(1,))).flatten()
         self.loss = T.sum((features - tocmp)**2 * masks * extmask)
 
         self.output = target.resp
