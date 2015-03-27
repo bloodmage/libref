@@ -44,15 +44,15 @@ def setconvmode(mode):
 
 def conv2d(input,filters,image_shape=None,filter_shape=None,border_mode='valid'):
     global convmode
+    if convmode==CUDNN_CONV:
+        if border_mode == 'same':
+            print "CUDNN_SAME"
+            return dconv.dnn_conv(input,filters,border_mode=(filter_shape[2]/2, filter_shape[3]/2), direction_hint='forward!')
     if border_mode=='same':
-        if convmode==CUDNN_CONV:
-            border_mode = (filter_shape[2]-1)/2,(filter_shape[3]-1)/2
-            allocspace = input
-        else:
-            allocspace = T.alloc(0.0, image_shape[0], image_shape[1], image_shape[2]+filter_shape[2]-1, image_shape[3]+filter_shape[3]-1)
-            allocspace = T.patternbroadcast(allocspace, (False,)*4)
-            allocspace = T.set_subtensor(allocspace[:,:,filter_shape[2]/2:filter_shape[2]/2+image_shape[2],filter_shape[3]/2:filter_shape[3]/2+image_shape[3]],input)
-            border_mode='valid'
+        allocspace = T.alloc(0.0, image_shape[0], image_shape[1], image_shape[2]+filter_shape[2]-1, image_shape[3]+filter_shape[3]-1)
+        allocspace = T.patternbroadcast(allocspace, (False,)*4)
+        allocspace = T.set_subtensor(allocspace[:,:,filter_shape[2]/2:filter_shape[2]/2+image_shape[2],filter_shape[3]/2:filter_shape[3]/2+image_shape[3]],input)
+        border_mode='valid'
     else:
         allocspace = input
     if convmode==THEANO_CONV:
@@ -1150,6 +1150,7 @@ def shuffle_in_unison_inplace(rng, a, b):
     assert len(a) == len(b)
     p = rng.permutation(len(a))
     return a[p], b[p]
+
 
 
 

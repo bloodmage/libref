@@ -3,6 +3,7 @@ import theano.tensor as T
 from layerbase import Layer, Param, VisLayer, NParam, nonlinear, LossLayer
 from fractallayer import dtypeX
 import numpy as np
+from theano.tensor.nnet import binary_crossentropy
 
 class RNGMiddleware:
     def RNG_GEN(self, rng, inputs, outputs):
@@ -258,19 +259,24 @@ class TakeLayer(Layer, Param, RNGMiddleware):
         else:
             self.params = [self.taketable]
 
-class HuffmannLossLayer(Layer, LossLayer):
+class HuffmannLossLayer(Layer, VisLayer, LossLayer):
     def __init__(self, input, target, huffmannconf, extmask = 1):
         #Config to gpu
         huffmannmults = np.array([[1 if j!=' ' else 0 for j in i] for _, i in huffmannconf],'f')
         huffmannapps = np.array([[1 if j=='1' else 0 for j in i] for _, i in huffmannconf],'f')
-
+        print target.resp_shape
+        print huffmannapps
+        huffmannapps = theano.shared(huffmannapps)
+        huffmannmults = theano.shared(huffmannmults)
         #Loss function: bits not correct
-        features = huffmannapps.take(target.resp.flatten(), axis=0)
-        masks = huffmannmults.take(target.resp.flatten(), axis=0)
+        features = huffmannapps.take(target.resp.flatten(), axis=0).flatten()
+        masks = huffmannmults.take(target.resp.flatten(), axis=0).flatten()
         tocmp = input.output.dimshuffle(*((0,)+tuple(range(2,len(input.output_shape)))+(1,))).flatten()
-        self.loss = T.sum((features - tocmp)**2 * masks * extmask)
+        maskederr = binary_crossentropy(tocmp, features) * masks
+        self.loss = T.sum(T.reshape(abs(maskederr), (T.prod(input.output_shape)/input.output_shape[1], input.output_shape[1])) * extmask.dimshuffle(0,'x'))
 
-        self.output = target.resp
-        self.output_shape = target.resp_shape
+        self.output = T.concatenate([maskederr.reshape(target.resp_shape+(len(huffmannconf[0][1]),)), features.reshape(target.resp_shape+(len(huffmannconf[0][1]),)), masks.reshape(target.resp_shape+(len(huffmannconf[0][1]),))], axis=len(target.resp_shape))
+        self.output = self.output.dimshuffle(*((0,len(target.resp_shape))+tuple(range(1,len(target.resp_shape)))))
+        self.output_shape = (target.resp_shape[0], len(huffmannconf[0][1])*3)+target.resp_shape[1:]
 
 
