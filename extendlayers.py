@@ -272,11 +272,25 @@ class HuffmannLossLayer(Layer, VisLayer, LossLayer):
         features = huffmannapps.take(target.resp.flatten(), axis=0).flatten()
         masks = huffmannmults.take(target.resp.flatten(), axis=0).flatten()
         tocmp = input.output.dimshuffle(*((0,)+tuple(range(2,len(input.output_shape)))+(1,))).flatten()
-        maskederr = binary_crossentropy(tocmp, features) * masks
-        self.loss = T.sum(T.reshape(abs(maskederr), (T.prod(input.output_shape)/input.output_shape[1], input.output_shape[1])) * extmask.dimshuffle(0,'x'))
+        maskederr = (features - tocmp) * masks
+        self.loss = T.sum(T.reshape(maskederr**2, (T.prod(input.output_shape)/input.output_shape[1], input.output_shape[1])) * extmask.dimshuffle(0,'x'))
 
         self.output = T.concatenate([maskederr.reshape(target.resp_shape+(len(huffmannconf[0][1]),)), features.reshape(target.resp_shape+(len(huffmannconf[0][1]),)), masks.reshape(target.resp_shape+(len(huffmannconf[0][1]),))], axis=len(target.resp_shape))
         self.output = self.output.dimshuffle(*((0,len(target.resp_shape))+tuple(range(1,len(target.resp_shape)))))
         self.output_shape = (target.resp_shape[0], len(huffmannconf[0][1])*3)+target.resp_shape[1:]
 
+class OptionalMultipleChoiceCappedSquareLoss(Layer, VisLayer, LossLayer):
+    def __init__(self,input,truth,mask):
+        self.output_shape = input.output_shape
+        Layer.linkstruct[input].append(self)
+        #2 parts, 0<o<t t<o
+
+        diff = truth.resp*0.8 - input.output
+        diff = T.switch(T.gt(diff,0),diff,0)
+        diff = T.switch(T.eq(truth.resp,0),1,diff)
+        diffsmul = T.prod(diff, axis=1)
+        loss = T.sum(diffsmul * mask)
+        self.loss = loss
+        self.output = truth.resp
+        self.output_shape = truth.resp_shape
 

@@ -46,7 +46,6 @@ def conv2d(input,filters,image_shape=None,filter_shape=None,border_mode='valid')
     global convmode
     if convmode==CUDNN_CONV:
         if border_mode == 'same':
-            print "CUDNN_SAME"
             return dconv.dnn_conv(input,filters,border_mode=(filter_shape[2]/2, filter_shape[3]/2), direction_hint='forward!')
     if border_mode=='same':
         allocspace = T.alloc(0.0, image_shape[0], image_shape[1], image_shape[2]+filter_shape[2]-1, image_shape[3]+filter_shape[3]-1)
@@ -139,7 +138,10 @@ class Layer:
     linkstruct = collections.defaultdict(lambda:[])
 
 class Param: pass
-class VisLayer: pass
+class VisLayer:
+    def setomit(self):
+        self.omitvis = True
+        return self
 class LossLayer: pass
 class VisSamerank: pass
 class NParam: pass
@@ -147,10 +149,14 @@ class NParam: pass
 def nonlinear(input, nonlinear = 'tanh'):
     if nonlinear == 'tanh' or nonlinear == True:
         return T.tanh(input)
+    elif nonlinear == 'ftanh':
+        return input / (1+abs(input))
     elif nonlinear == 'rectifier':
-        return input * (input > 0)
+        return T.switch(input<0, 0, input)#input * (input > 0)
     elif nonlinear == 'sigmoid':
         return nnet.sigmoid(input)
+    elif nonlinear == 'fsigmoid':
+        return (2+input+abs(input))/(4+2*abs(input))
     elif nonlinear == 'softplus':
         return nnet.softplus(input)
     elif nonlinear == 'linear' or not nonlinear:
@@ -416,7 +422,7 @@ class ConcentrateConvKeepLayer(Layer, Param, VisLayer):
     
         inc[0] = inc[0]+1
 
-class MulNonlinearLayer(Layer,VisSamerank):
+class MulNonlinearLayer(Layer,VisLayer,VisSamerank):
 
     def __init__(self, input, leftnonlinear=False, rightnonlinear=False, outnonlinear='tanh'):
 
@@ -504,8 +510,7 @@ class LRN_InMap(Layer, VisSamerank):
         self.output_shape = input.output_shape
         self.k = CachedInst('theano.shared(value=np.ones((1,1,%s,%s),theano.config.floatX))'%(arange,arange))
         flatshape = (input.output_shape[0]*input.output_shape[1],1,input.output_shape[2],input.output_shape[3])
-        self.flatinput = T.reshape(input.output,flatshape)
-        self.flatinput = self.flatinput*self.flatinput
+        self.flatinput = T.reshape(input.output**2,flatshape)
 
         conv_out = conv2d(self.flatinput, self.k, filter_shape=(1,1,arange,arange), image_shape=flatshape, border_mode='same')
         conv_out = 1+conv_out * alpha / (arange*arange)
@@ -738,11 +743,12 @@ class MaskedHengeLoss(Layer, VisLayer, LossLayer):
 
 class CrossEntropyLoss(Layer, VisLayer, LossLayer):
 
-    def __init__(self,input,response):
+    def __init__(self,input,response,mask=None):
         Layer.linkstruct[input].append(self)
         targets = response.resp
-        self.loss = nnet.binary_crossentropy(input.output,targets).mean()
-        self.output = response.resp
+        output = nnet.binary_crossentropy(input.output,targets)*(1 if mask==None else mask)
+        self.loss = output.mean()
+        self.output = (input.output - targets)*(1 if mask==None else mask)
         self.output_shape = response.resp_shape
 
 class BlurSquareLoss(Layer, VisLayer, LossLayer):
@@ -773,7 +779,7 @@ class SquareLoss(Layer, VisLayer, LossLayer):
         output = (targets-input.output)*(1 if mask==None else mask)
         self.loss = self.squareloss = T.sum(output*output)
         self.output_shape = response.resp_shape
-        self.output = targets
+        self.output = output
 
 class SSIMLoss(Layer, VisLayer, LossLayer):
     
@@ -818,8 +824,8 @@ class DropOut(Layer, VisSamerank):
         self.data=input.output
         Layer.linkstruct[input].append(self)
         self.output_shape=input.output_shape
-        self.rnd=rnd.binomial(size=input.output_shape, dtype='float32')
-        self.output=self.data*(1+symboldropout*(self.rnd*2-1))
+        self.rnd=rnd.binomial(size=input.output_shape, n=1, p=0.7, dtype='float32')
+        self.output=self.data*(1+symboldropout*(self.rnd*2.04-1))
 
 class LayerbasedDropOut(Layer, VisSamerank):
 
@@ -1067,7 +1073,8 @@ class Model:
         p = []
         for i in self.layers:
             if isinstance(i,VisLayer):
-                p.append(i.output)
+                if not hasattr(i,'omitvis'):
+                    p.append(i.output)
         return p
 
     def params(self):
@@ -1152,5 +1159,13 @@ def shuffle_in_unison_inplace(rng, a, b):
     return a[p], b[p]
 
 
+class SimpleShrinkshapeFractal(Layer):
+    def __init__(self,inp):
+        self.output = dnn_pool(inp.output,(2,2),(2,2))
+        self.output_shape = inp.output_shape[0], inp.output_shape[1], inp.output_shape[2]/2, inp.output_shape[3]/2
+class SimpleExpandshapeFractal(Layer):
+    def __init__(self,inp,*args,**kargs):
+        self.output_shape = inp.output_shape[0], inp.output_shape[1], inp.output_shape[2]*2, inp.output_shape[3]*2
+        self.output = T.tile(inp.output.dimshuffle(0,1,2,'x',3,'x'),(1,1,1,2,1,2)).reshape(self.output_shape)
 
 
