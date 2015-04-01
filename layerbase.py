@@ -1158,7 +1158,10 @@ def shuffle_in_unison_inplace(rng, a, b):
     p = rng.permutation(len(a))
     return a[p], b[p]
 
-
+try: from theano.sandbox.cuda.dnn import dnn_pool
+except:
+    from theano.tensor.signal.downsample import max_pool_2d
+    dnn_pool = lambda a,b,c: max_pool_2d(a,b,st=c)
 class SimpleShrinkshapeFractal(Layer):
     def __init__(self,inp):
         self.output = dnn_pool(inp.output,(2,2),(2,2))
