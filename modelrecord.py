@@ -370,11 +370,13 @@ RECORD_INSTANCE = None
 class Record:
     "实验记录，将进行的实验数据传至服务器"
 
-    def __init__(self, server = 'exp.zysdomain.tk'):
+    def __init__(self, server = 'exp.zysdomain.tk', wsserver = None):
         self.dirty = {}
         self.dataupload = None
         self.seq = 0
         self.server = server
+        if wsserver==None: wsserver = server + ':8080'
+        self.wsserver = wsserver
         self.rest = AsyncRest()
         self.delegates = []
         atexit.register(self.S)
@@ -551,7 +553,7 @@ class Record:
         _stat = _mystatrec()
         self._stat = _stat
         self.patchout = PatchedStdout(self.expname.encode('utf-8')+(u'(%s,%s,%s)'%(self.expid,_stat['device'],os.path.split(_stat['filepath'])[1])).encode('utf-8'))
-        interacthelper('ws://'+self.server+':8080/cmdsock',self)
+        interacthelper('ws://'+self.wsserver+'/cmdsock',self)
         
     def R(self):
         "记录数值"

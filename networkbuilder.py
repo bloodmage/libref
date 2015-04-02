@@ -225,6 +225,7 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
     if remotemonitor!=False:
         import modelrecord
         if remotemonitor==None: modrec = remotemonitor.Record()
+        elif isinstance(remotemonitor, tuple): modrec = modelrecord.Record(*remotemonitor)
         else: modrec = modelrecord.Record(remotemonitor)
         modrec.genmeta(model, sameranks)
     else:
