@@ -790,7 +790,7 @@ class CapBinarySquareLoss(Layer, VisLayer, LossLayer):
         negcap = 1 - input.output
         poscap = input.output
         total = negcap * targets + poscap * ntargets
-        total = total.clip(0,1e10)
+        total = total.clip(0,1e10) * (1 if mask==None else mask)
         self.loss = T.sum(total**2)
         self.output = total * 2 * (input.output - 0.5)
         self.output_shape = input.output_shape
