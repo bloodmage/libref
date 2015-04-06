@@ -781,6 +781,20 @@ class SquareLoss(Layer, VisLayer, LossLayer):
         self.output_shape = response.resp_shape
         self.output = output
 
+class CapBinarySquareLoss(Layer, VisLayer, LossLayer):
+
+    def __init__(self,input,response,mask=None):
+        Layer.linkstruct[input].append(self)
+        targets = response.resp
+        ntargets = response.resp - 1
+        negcap = 1 - input.output
+        poscap = input.output
+        total = negcap * targets + poscap * ntargets
+        total = total.clip(0,1e10)
+        self.loss = T.sum(total**2)
+        self.output = total * 2 * (input.output - 0.5)
+        self.output_shape = input.output_shape
+
 class SSIMLoss(Layer, VisLayer, LossLayer):
     
     def __init__(self, input, response, image_shape = None, gkern = 5, gsigma = 1.5, c1 = 6.5025, c2 = 58.5225):
