@@ -833,8 +833,8 @@ class DropOut(Layer, VisSamerank):
         self.data=input.output
         Layer.linkstruct[input].append(self)
         self.output_shape=input.output_shape
-        self.rnd=rnd.binomial(size=input.output_shape, n=1, p=0.7, dtype='float32')
-        self.output=self.data*(1+symboldropout*(self.rnd*2.04-1))
+        self.rnd=rnd.binomial(size=input.output_shape, n=1, p=0.5, dtype='float32')
+        self.output=self.data*(1+symboldropout*(self.rnd*2-1))
 
 class LayerbasedDropOut(Layer, VisSamerank):
 
