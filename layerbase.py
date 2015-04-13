@@ -362,6 +362,69 @@ class ConvKeepLayer(Layer, Param, VisLayer):
     
         inc[0] = inc[0]+1
 
+class ConvMaxoutKeepLayer(Layer, Param, VisLayer):
+    def __init__(self, rng, input, filter_shape, image_shape = None, MaxGroups = 5, zeroone = False, inc=[0], dropout = False, dropoutrnd = None, shareLayer = None, through = None, throughend = None):
+
+        if isinstance(input, Layer):
+            self.input = input.output 
+            Layer.linkstruct[input].append(self)
+            if image_shape==None:
+                image_shape = input.output_shape
+        else:
+            self.input = input
+        assert image_shape[1] == filter_shape[1]
+        assert filter_shape[2]%2 == 1
+        assert filter_shape[3]%2 == 1
+        med = (filter_shape[2]-1)/2,(filter_shape[3]-1)/2
+
+        fan_in = np.prod(filter_shape[1:])
+        grp_filter_shape = (filter_shape[0]*MaxGroups,)+filter_shape[1:]
+
+        if shareLayer!=None:
+            self.W = shareLayer.W
+            self.b = shareLayer.b
+        else:
+            W_values = np.asarray(rng.uniform(
+                  low=-np.sqrt(0.5/fan_in),
+                  high=np.sqrt(0.5/fan_in),
+                  size=grp_filter_shape), dtype=theano.config.floatX)
+            #if through!=None:
+            #    for i in range(filter_shape[0] if throughend==None else throughend):
+            #        W_values[i,through+i,(filter_shape[2]-1)/2,(filter_shape[3]-1)/2]=1
+            self.W = theano.shared(value=W_values, name='W_%s'%inc[0])
+
+            b_values = np.zeros((grp_filter_shape[0],), dtype=theano.config.floatX)
+            self.b = theano.shared(value=b_values, name='b_%s'%inc[0])
+
+        conv_out = conv2d(self.input, self.W,
+                filter_shape=grp_filter_shape, image_shape=image_shape, border_mode="same")
+        #Get middle area
+        #conv_out = conv_out[:,:,med[0]:-med[0],med[1]:-med[1]]
+        if through!=None:
+            if throughend==None:
+                conv_out = conv_out + self.input[:,through:through+filter_shape[0]]
+            else:
+                conv_out = T.inc_subtensor(conv_out[:,0:throughend], self.input[:,through:throughend+through])
+
+        self.output = T.max((conv_out + self.b.dimshuffle('x', 0, 'x', 'x')).reshape((filter_shape[0],filter_shape[1],MaxGroups)+filter_shape[2:]), 2)
+        if zeroone:
+            self.output = (self.output+1) * 0.5
+        self.output_shape = (image_shape[0], filter_shape[0], image_shape[2], image_shape[3])
+        
+
+        if not (dropout is False): #Embed a layerwise dropout layer
+            if isinstance(dropout, tuple):
+                self.output = dropout[0](self, dropoutrnd, dropout[1]).output
+            else:
+                self.output = LayerbasedDropOut(self, dropoutrnd, dropout).output
+        
+        if shareLayer!=None:
+            self.params = []
+        else:
+            self.params = [self.W, self.b]
+    
+        inc[0] = inc[0]+1
+
 
 class ConcentrateConvKeepLayer(Layer, Param, VisLayer):
     def __init__(self, rng, input, concentrate, filter_shape, image_shape = None, Nonlinear = "tanh", zeroone = False, inc=[0], dropout = False, dropoutrnd = None, shareLayer = None, through = None, throughend = None):
