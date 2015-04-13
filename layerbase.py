@@ -406,7 +406,7 @@ class ConvMaxoutKeepLayer(Layer, Param, VisLayer):
             else:
                 conv_out = T.inc_subtensor(conv_out[:,0:throughend], self.input[:,through:throughend+through])
 
-        self.output = T.max((conv_out + self.b.dimshuffle('x', 0, 'x', 'x')).reshape((filter_shape[0],filter_shape[1],MaxGroups)+filter_shape[2:]), 2)
+        self.output = T.max((conv_out + self.b.dimshuffle('x', 0, 'x', 'x')).reshape((image_shape[0],filter_shape[0],MaxGroups, image_shape[2], image_shape[3])), 2)
         if zeroone:
             self.output = (self.output+1) * 0.5
         self.output_shape = (image_shape[0], filter_shape[0], image_shape[2], image_shape[3])
