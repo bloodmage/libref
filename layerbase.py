@@ -896,7 +896,7 @@ class DropOut(Layer, VisSamerank):
         self.data=input.output
         Layer.linkstruct[input].append(self)
         self.output_shape=input.output_shape
-        self.rnd=rnd.binomial(size=input.output_shape, n=1, p=0.5, dtype='float32')
+        self.rnd=rnd.binomial(size=input.output.shape, n=1, p=0.5, dtype='float32')
         self.output=self.data*(1+symboldropout*(self.rnd*2-1))
 
 class LayerbasedDropOut(Layer, VisSamerank):
@@ -905,7 +905,7 @@ class LayerbasedDropOut(Layer, VisSamerank):
         self.data=input.output
         Layer.linkstruct[input].append(self)
         self.output_shape=input.output_shape
-        self.rnd=rnd.binomial(size=input.output_shape[0:2], dtype='float32')
+        self.rnd=rnd.binomial(size=input.output.shape[0:2], dtype='float32')
         self.rnd = T.shape_padright(self.rnd, len(input.output_shape)-2)
         self.output = self.data*(1+symboldropout*(self.rnd*2-1))
 
@@ -1118,7 +1118,7 @@ class Model:
             if isinstance(i,NParam):
                 for j in i.nparams:
                     params['%s_NP'%idx] = j
-        np.savez(fileobj, **params)
+        np.savez_compressed(fileobj, **params)
 
     def load(self, fileobj):
         obj = np.load(fileobj)
