@@ -909,6 +909,16 @@ class LayerbasedDropOut(Layer, VisSamerank):
         self.rnd = T.shape_padright(self.rnd, len(input.output_shape)-2)
         self.output = self.data*(1+symboldropout*(self.rnd*2-1))
 
+class LayerbasedDropOut1D(Layer, VisSamerank):
+
+    def __init__(self,input,rnd,symboldropout=1):
+        self.data=input.output
+        Layer.linkstruct[input].append(self)
+        self.output_shape=input.output_shape
+        self.rnd=rnd.binomial(size=(input.output.shape[1],), dtype='float32')
+        self.rnd = T.shape_padleft(T.shape_padright(self.rnd, len(input.output_shape)-2),1)
+        self.output = self.data*(1+symboldropout*(self.rnd*2-1))
+
 class LogSoftmaxLayer(Layer, VisLayer, VisSamerank):
 
     def __init__(self,input):
@@ -1138,7 +1148,8 @@ class Model:
                 for j in i.nparams:
                     try:
                         j[:] = obj['%s_NP'%idx]
-                    except:
+                    except Exception,e:
+                        print e
                         print "CANNOT SET",'%s_NP'%idx
     
     def outputs(self):
@@ -1242,5 +1253,6 @@ class SimpleExpandshapeFractal(Layer):
     def __init__(self,inp,*args,**kargs):
         self.output_shape = inp.output_shape[0], inp.output_shape[1], inp.output_shape[2]*2, inp.output_shape[3]*2
         self.output = T.tile(inp.output.dimshuffle(0,1,2,'x',3,'x'),(1,1,1,2,1,2)).reshape(self.output_shape)
+
 
 
