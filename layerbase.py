@@ -145,6 +145,7 @@ class VisLayer:
 class LossLayer: pass
 class VisSamerank: pass
 class NParam: pass
+class CMomentum: pass
 
 def nonlinear(input, nonlinear = 'tanh'):
     if nonlinear == 'tanh' or nonlinear == True:
@@ -1175,9 +1176,13 @@ class Model:
     def pmomentum(self):
         p = self.params()
         q = []
-        for i in p:
-            init = np.zeros_like(i.get_value())
-            q.append(theano.shared(init, name=i.name+'_momentum'))
+        for i in self.layers:
+            if isinstance(i,CMomentum):
+                q.extend(i.get_momentums())
+            elif isinstance(i,Param):
+                for j in i.params:
+                    init = np.zeros_like(j.get_value())
+                    q.append(theano.shared(init, name=j.name+'_momentum'))
         return q
 
     def loss(self):
