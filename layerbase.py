@@ -906,7 +906,7 @@ class LayerbasedDropOut(Layer, VisSamerank):
         self.data=input.output
         Layer.linkstruct[input].append(self)
         self.output_shape=input.output_shape
-        self.rnd=rnd.binomial(size=input.output.shape[0:2], dtype='float32', ndim=2)
+        self.rnd=rnd.binomial(size=input.output.shape[0:2], dtype='float32')
         self.rnd = T.shape_padright(self.rnd, len(input.output_shape)-2)
         self.output = self.data*(1+symboldropout*(self.rnd*2-1))
 
@@ -966,12 +966,18 @@ class Conv1DLayer(Layer,Param,VisLayer):
             b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
             self.b = theano.shared(value=b_values, name='b_%s'%inc[0])
         conv_out = conv1d(self.input, self.W,
-                filter_shape=filter_shape, image_shape=image_shape, border_mode="valid" if isShrink else "full")
+                filter_shape=filter_shape, image_shape=image_shape, border_mode="valid" if isShrink==True else "full")
+        if isShrink=="keep":
+            if filter_shape[2]%2==0:
+                raise Exception("Filter shape must be odd")
+            conv_out = conv_out[:,:,filter_shape[2]/2:filter_shape[2]/2+self.input.shape[2]]
         self.output = nonlinear(conv_out + self.b.dimshuffle('x', 0, 'x'), Nonlinear)
         if zeroone:
             self.output = (self.output+1) * 0.5
-
-        self.output_shape = (image_shape[0], filter_shape[0],
+        if isShrink=="keep":
+            self.output_shape = (image_shape[0], filter_shape[0], image_shape[2])
+        else:
+            self.output_shape = (image_shape[0], filter_shape[0],
                 image_shape[2]-filter_shape[2]+1 if isShrink else image_shape[2]+filter_shape[2]-1)
         
         if shareLayer==None:
@@ -980,6 +986,13 @@ class Conv1DLayer(Layer,Param,VisLayer):
             self.params = []
 
         inc[0] = inc[0]+1
+
+def TConv1DLayer(rng,input,*args,**kwargs):
+    sin = SymbolLayer(input.output.dimshuffle('x',1,0), (1,input.output_shape[1],input.output_shape[0]), input)
+    sout = Conv1DLayer(rng,sin,*args,**kwargs)
+    sout.output = sout.output[0].T
+    sout.output_shape = sout.output_shape[2], sout.output_shape[1]
+    return sout
 
 class Maxpool1DLayer(Layer,VisSamerank):
 
