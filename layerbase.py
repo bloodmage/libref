@@ -1215,9 +1215,10 @@ def DrawPatch(block, blknorm = True):
     else:
         flatblk = (flatblk-np.min(flatblk, axis=(1,2), keepdims=True)) / (np.max(flatblk, axis=(1,2), keepdims=True) - np.min(flatblk, axis=(1,2), keepdims=True)+EPS)
 
-    width = math.ceil(math.sqrt(flatblk.shape[0]))
+    width = min(flatblk.shape[0],math.ceil(math.sqrt(flatblk.shape[0]*block.shape[2]*block.shape[3])/block.shape[3]))
     height = (flatblk.shape[0] + width - 1) // width
     canvas = np.zeros((height*block.shape[2]+height-1,width*block.shape[3]+width-1),'f')
+    canvas[:]=0.5
     for i in range(flatblk.shape[0]):
         y = i // width
         x = i % width

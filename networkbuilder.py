@@ -89,7 +89,7 @@ def DrawPatch(block, blknorm = True):
     else:
         flatblk = (flatblk-np.min(flatblk, axis=(1,2), keepdims=True)) / (np.max(flatblk, axis=(1,2), keepdims=True) - np.min(flatblk, axis=(1,2), keepdims=True)+EPS)
 
-    width = math.ceil(math.sqrt(flatblk.shape[0]))
+    width = min(flatblk.shape[0],math.ceil(math.sqrt(flatblk.shape[0]*block.shape[2]*block.shape[3])/block.shape[3]))
     height = (flatblk.shape[0] + width - 1) // width
     canvas = np.zeros((height*block.shape[2]+height-1,width*block.shape[3]+width-1),'f')
     canvas[:]=0.5
@@ -107,9 +107,9 @@ def DrawPatchLossdiff(block, blknorm = True):
     else:
         flatblk = flatblk / (np.max(abs(flatblk), axis=(1,2), keepdims=True) + EPS)
 
-    width = math.ceil(math.sqrt(flatblk.shape[0]))
+    width = min(flatblk.shape[0],math.ceil(math.sqrt(flatblk.shape[0]*block.shape[2]*block.shape[3])/block.shape[3]))
     height = (flatblk.shape[0] + width - 1) // width
-    canvas = np.ones((height*block.shape[2]+height-1,width*block.shape[3]+width-1,3),'f')
+    canvas = np.zeros((height*block.shape[2]+height-1,width*block.shape[3]+width-1,3),'f')
     for i in range(flatblk.shape[0]):
         y = i // width
         x = i % width
@@ -127,7 +127,7 @@ def DrawPatchRGB(block, blknorm = False):
     else:
         flatblk = (flatblk-np.min(flatblk, axis=(1,2), keepdims=True)) / (np.max(flatblk, axis=(1,2), keepdims=True) - np.min(flatblk, axis=(1,2), keepdims=True)+EPS)
 
-    width = math.ceil(math.sqrt(flatblk.shape[0]/3))
+    width = min(flatblk.shape[0],math.ceil(math.sqrt(flatblk.shape[0]*block.shape[2]*block.shape[3])/block.shape[3]))
     height = (flatblk.shape[0]/3 + width - 1) // width
     canvas = np.zeros((height*block.shape[2]+height-1,width*block.shape[3]+width-1,3),'f')
     for i in range(flatblk.shape[0]/3):
@@ -144,7 +144,10 @@ def __MPDrawFunc(vispath,queue):
         draws,resp = queue.get()
         try:
             for layer,param,reshape in draws:
+                extra = None
                 if reshape!=None:
+                    if isinstance(reshape,list):
+                        extra, reshape = reshape
                     param = param.reshape((-1,)+reshape[1:])
                 if len(param.shape)==3:
                     param = param.reshape((1,)+param.shape)
@@ -155,7 +158,10 @@ def __MPDrawFunc(vispath,queue):
                 if len(param.shape)==2:
                     PIL.Image.fromarray(np.array((param-np.min(param))/(np.max(param)-np.min(param))*255,np.uint8)).save(os.path.join(vispath,'layer_%s.png'%layer))
                     continue
-                PIL.Image.fromarray(DrawPatch(param)).save(os.path.join(vispath,'layer_%s.jpg'%layer), quality=100)
+                if extra == 'LOSS':
+                    PIL.Image.fromarray(DrawPatchLossdiff(param)).save(os.path.join(vispath,'layer_%s.jpg'%layer), quality=100)
+                else:
+                    PIL.Image.fromarray(DrawPatch(param)).save(os.path.join(vispath,'layer_%s.jpg'%layer), quality=100)
             #Draw response
             layer = 0
             for i in resp:
@@ -171,7 +177,7 @@ def __MPDrawFunc(vispath,queue):
                     PIL.Image.fromarray(DrawPatchRGB(i)).save(os.path.join(vispath,'resp%s.jpg'%layer), quality=100)
                 else:
                     if layer==len(resp):
-                        PIL.Image.fromarray(DrawPatchLossdiff(i)).save(os.path.join(vispath,'resp%s.jpg'%layer), quality=100)
+                        PIL.Image.fromarray(DrawPatch(i, False)).save(os.path.join(vispath,'resp%s.jpg'%layer), quality=100)
                     else:
                         PIL.Image.fromarray(DrawPatch(i)).save(os.path.join(vispath,'resp%s.jpg'%layer), quality=100)
         except IOError:
@@ -291,12 +297,16 @@ def trainroutine(ftrain,model,savename,vispath,fdatagen,fvis=None,fcheck=None,fc
                 for i in model.paramlayers():
                     if len(i.params)<1: continue
                     if len(i.params)>2:
-                        for j in i.params:
+                        if hasattr(i,'reshape'):
+                            reshape = i.reshape
+                        else:
+                            reshape = [None]*len(i.params)
+                        for j,rj in zip(i.params,reshape):
                             s = j.get_value()
                             vsh = [i for i in s.shape if i>1]
                             if len(vsh)<2: continue
                             layer += 1
-                            drawlayers.append((layer, s, None))
+                            drawlayers.append((layer, s, rj))
                     else:
                         layer += 1
                         drawlayers.append((layer, i.params[0].get_value(), i.reshape if hasattr(i,'reshape') and i.reshape!=None else None))
@@ -379,8 +389,4 @@ def makenet(inp):
     #OUTPUT
     outlayer = LCollect(ConvKeepLayer(rng, slayers[0], (shapetmpl[0].resp_shape[1], RECEPTIVE,RECEPTIVE), Nonlinear = False))
     return LPop(), outlayer
-
-
-
-
 
