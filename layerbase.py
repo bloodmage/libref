@@ -44,9 +44,9 @@ def setconvmode(mode):
 
 def conv2d(input,filters,image_shape=None,filter_shape=None,border_mode='valid'):
     global convmode
-    if convmode==CUDNN_CONV:
-        if border_mode == 'same':
-            return dconv.dnn_conv(input,filters,border_mode=(filter_shape[2]/2, filter_shape[3]/2), direction_hint='forward!')
+    #if convmode==CUDNN_CONV:
+    #    if border_mode == 'same':
+    #        return dconv.dnn_conv(input,filters,border_mode=(filter_shape[2]/2, filter_shape[3]/2), direction_hint='forward!')
     if border_mode=='same':
         allocspace = T.alloc(0.0, image_shape[0], image_shape[1], image_shape[2]+filter_shape[2]-1, image_shape[3]+filter_shape[3]-1)
         allocspace = T.patternbroadcast(allocspace, (False,)*4)
@@ -57,7 +57,7 @@ def conv2d(input,filters,image_shape=None,filter_shape=None,border_mode='valid')
     if convmode==THEANO_CONV:
         return conv.conv2d(allocspace,filters,image_shape=image_shape,filter_shape=filter_shape,border_mode=border_mode)
     elif convmode==CUDNN_CONV:
-        return dconv.dnn_conv(allocspace,filters,border_mode=border_mode, direction_hint='forward!')
+        return dconv.dnn_conv(allocspace,filters,border_mode=border_mode, direction_hint='forward')
     elif convmode==GPUCORR_CONV:
         import theano.sandbox.cuda.blas
         return theano.sandbox.cuda.blas.GpuCorrMM(border_mode)(allocspace,cuda.basic_ops.gpu_contiguous(filters[:,:,::-1,::-1]))
@@ -150,6 +150,8 @@ class CMomentum: pass
 def nonlinear(input, nonlinear = 'tanh'):
     if nonlinear == 'tanh' or nonlinear == True:
         return T.tanh(input)
+    elif nonlinear == 'abstanh':
+        return abs(T.tanh(input))
     elif nonlinear == 'ftanh':
         return input / (1+abs(input))
     elif nonlinear == 'rectifier':
@@ -164,6 +166,11 @@ def nonlinear(input, nonlinear = 'tanh'):
         return input
     else:
         raise Exception("Unknown nonlinear %s"%nonlinear)
+
+class NonlinearLayer(Layer):
+    def __init__(self, input, nonlinearity = 'tanh'):
+        self.output = nonlinear(input.output, nonlinearity)
+        self.output_shape = input.output_shape
 
 class ConvLayer(Layer, Param, VisLayer):
 
@@ -236,10 +243,10 @@ class ConvMaxoutLayer(Layer, Param, VisLayer):
                   low=-np.sqrt(0.5/fan_in),
                   high=np.sqrt(0.5/fan_in),
                   size=filter_shape), dtype=theano.config.floatX)
-            self.W = theano.shared(value=W_values, name='W_%s'%inc[0])
+            self.W = theano.shared(value=W_values, name='Wmo_%s'%inc[0])
 
             b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
-            self.b = theano.shared(value=b_values, name='b_%s'%inc[0])
+            self.b = theano.shared(value=b_values, name='bmo_%s'%inc[0])
 
         conv_out = conv2d(self.input, self.W,
                 filter_shape=filter_shape, image_shape=image_shape, border_mode="valid" if isShrink else "full")
@@ -302,7 +309,7 @@ class MLPConvLayer(Layer, Param, VisLayer):
         inc[0] = inc[0]+1
 
 class ConvKeepLayer(Layer, Param, VisLayer):
-    def __init__(self, rng, input, filter_shape, image_shape = None, Nonlinear = "tanh", zeroone = False, inc=[0], dropout = False, dropoutrnd = None, shareLayer = None, through = None, throughend = None):
+    def __init__(self, rng, input, filter_shape, image_shape = None, Nonlinear = "tanh", zeroone = False, inc=[0], dropout = False, dropoutrnd = None, shareLayer = None, through = None, throughend = None, UpdateScale = 1):
 
         if isinstance(input, Layer):
             self.input = input.output 
@@ -325,16 +332,16 @@ class ConvKeepLayer(Layer, Param, VisLayer):
             W_values = np.asarray(rng.uniform(
                   low=-np.sqrt(0.5/fan_in),
                   high=np.sqrt(0.5/fan_in),
-                  size=filter_shape), dtype=theano.config.floatX)
+                  size=filter_shape), dtype=theano.config.floatX) * UpdateScale
             #if through!=None:
             #    for i in range(filter_shape[0] if throughend==None else throughend):
             #        W_values[i,through+i,(filter_shape[2]-1)/2,(filter_shape[3]-1)/2]=1
             self.W = theano.shared(value=W_values, name='W_%s'%inc[0])
 
-            b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
+            b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX) * UpdateScale
             self.b = theano.shared(value=b_values, name='b_%s'%inc[0])
 
-        conv_out = conv2d(self.input, self.W,
+        conv_out = conv2d(self.input, self.W/UpdateScale,
                 filter_shape=filter_shape, image_shape=image_shape, border_mode="same")
         #Get middle area
         #conv_out = conv_out[:,:,med[0]:-med[0],med[1]:-med[1]]
@@ -344,7 +351,7 @@ class ConvKeepLayer(Layer, Param, VisLayer):
             else:
                 conv_out = T.inc_subtensor(conv_out[:,0:throughend], self.input[:,through:throughend+through])
 
-        self.output = nonlinear(conv_out + self.b.dimshuffle('x', 0, 'x', 'x'), Nonlinear)
+        self.output = nonlinear(conv_out + self.b.dimshuffle('x', 0, 'x', 'x')/UpdateScale, Nonlinear)
         if zeroone:
             self.output = (self.output+1) * 0.5
         self.output_shape = (image_shape[0], filter_shape[0], image_shape[2], image_shape[3])
@@ -687,14 +694,18 @@ class FlatSoftmaxLayer(Layer, VisLayer, VisSamerank):
 
 class SoftmaxLayer(Layer, VisLayer, VisSamerank):
 
-    def __init__(self,input):
+    def __init__(self,input,dataplane=False):
         self.output_shape = input.output_shape
         Layer.linkstruct[input].append(self)
         assert len(input.output_shape)==4
 
         x = input.output
-        e_x = T.exp(x - x.max(axis=1, keepdims=True))
-        out = e_x / e_x.sum(axis=1, keepdims=True)
+        if dataplane:
+            e_x = T.exp(x - x.max(axis=(2,3), keepdims=True))
+            out = e_x / e_x.sum(axis=(2,3), keepdims=True)
+        else:
+            e_x = T.exp(x - x.max(axis=1, keepdims=True))
+            out = e_x / e_x.sum(axis=1, keepdims=True)
         
         self.output = out
 
@@ -906,7 +917,7 @@ class LayerbasedDropOut(Layer, VisSamerank):
         self.data=input.output
         Layer.linkstruct[input].append(self)
         self.output_shape=input.output_shape
-        self.rnd=rnd.binomial(size=input.output.shape[0:2], dtype='float32')
+        self.rnd=rnd.binomial(size=input.output.shape[0:2], dtype='float32', ndim=2)
         self.rnd = T.shape_padright(self.rnd, len(input.output_shape)-2)
         self.output = self.data*(1+symboldropout*(self.rnd*2-1))
 
@@ -922,14 +933,20 @@ class LayerbasedDropOut1D(Layer, VisSamerank):
 
 class LogSoftmaxLayer(Layer, VisLayer, VisSamerank):
 
-    def __init__(self,input):
+    def __init__(self,input, dataplane = False, mask = 1):
         self.output_shape = input.output_shape
         Layer.linkstruct[input].append(self)
-        tdat = input.output.reshape((np.prod(self.output_shape[0:-1]),self.output_shape[-1]))
-        tdat = tdat - tdat.max(axis=1,keepdims=True)
-        tdat = tdat - T.log(T.exp(tdat).sum(axis=1,keepdims=True))
+        tdat = input.output#.reshape((np.prod(self.output_shape[0:-1]),self.output_shape[-1]))
+        if dataplane:
+            tdat = tdat*mask
+            tdat = tdat - tdat.max(axis=(2,3),keepdims=True)
+            tdat = tdat*mask
+            tdat = tdat - T.log((T.exp(tdat)*mask).sum(axis=(2,3),keepdims=True))
+        else:
+            tdat = tdat - tdat.max(axis=1,keepdims=True)
+            tdat = tdat - T.log(T.exp(tdat).sum(axis=1,keepdims=True))
 
-        self.output = tdat.reshape(self.output_shape)
+        self.output = tdat#.reshape(self.output_shape)
 
 class LabelLoss(Layer, VisLayer, LossLayer):
 
@@ -966,18 +983,12 @@ class Conv1DLayer(Layer,Param,VisLayer):
             b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
             self.b = theano.shared(value=b_values, name='b_%s'%inc[0])
         conv_out = conv1d(self.input, self.W,
-                filter_shape=filter_shape, image_shape=image_shape, border_mode="valid" if isShrink==True else "full")
-        if isShrink=="keep":
-            if filter_shape[2]%2==0:
-                raise Exception("Filter shape must be odd")
-            conv_out = conv_out[:,:,filter_shape[2]/2:filter_shape[2]/2+self.input.shape[2]]
+                filter_shape=filter_shape, image_shape=image_shape, border_mode="valid" if isShrink else "full")
         self.output = nonlinear(conv_out + self.b.dimshuffle('x', 0, 'x'), Nonlinear)
         if zeroone:
             self.output = (self.output+1) * 0.5
-        if isShrink=="keep":
-            self.output_shape = (image_shape[0], filter_shape[0], image_shape[2])
-        else:
-            self.output_shape = (image_shape[0], filter_shape[0],
+
+        self.output_shape = (image_shape[0], filter_shape[0],
                 image_shape[2]-filter_shape[2]+1 if isShrink else image_shape[2]+filter_shape[2]-1)
         
         if shareLayer==None:
@@ -986,13 +997,6 @@ class Conv1DLayer(Layer,Param,VisLayer):
             self.params = []
 
         inc[0] = inc[0]+1
-
-def TConv1DLayer(rng,input,*args,**kwargs):
-    sin = SymbolLayer(input.output.dimshuffle('x',1,0), (1,input.output_shape[1],input.output_shape[0]), input)
-    sout = Conv1DLayer(rng,sin,*args,**kwargs)
-    sout.output = sout.output[0].T
-    sout.output_shape = sout.output_shape[2], sout.output_shape[1]
-    return sout
 
 class Maxpool1DLayer(Layer,VisSamerank):
 
@@ -1215,10 +1219,9 @@ def DrawPatch(block, blknorm = True):
     else:
         flatblk = (flatblk-np.min(flatblk, axis=(1,2), keepdims=True)) / (np.max(flatblk, axis=(1,2), keepdims=True) - np.min(flatblk, axis=(1,2), keepdims=True)+EPS)
 
-    width = min(flatblk.shape[0],math.ceil(math.sqrt(flatblk.shape[0]*block.shape[2]*block.shape[3])/block.shape[3]))
+    width = math.ceil(math.sqrt(flatblk.shape[0]))
     height = (flatblk.shape[0] + width - 1) // width
     canvas = np.zeros((height*block.shape[2]+height-1,width*block.shape[3]+width-1),'f')
-    canvas[:]=0.5
     for i in range(flatblk.shape[0]):
         y = i // width
         x = i % width
