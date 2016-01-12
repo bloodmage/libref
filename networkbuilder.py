@@ -64,11 +64,17 @@ def TwoAheadProducer(prodfunc):
     return gen
 
 def __MPWorkerFunc(invokestr,queue):
-    module,func = invokestr.split(' ')
+    module,func = invokestr.split(' ',1)
+    if ' ' in func:
+        func, extra = func.split(' ',1)
+        extra = eval(extra)
+        print "EXTRA:",extra
+    else:
+        extra = ()
     mod = __import__(module)
     fobj = getattr(mod,func)
     while True:
-        queue.put(fobj())
+        queue.put(fobj(*extra))
 
 cachedbalance = {}
 def balancef(vmul,va):
@@ -89,7 +95,7 @@ def DrawPatch(block, blknorm = True):
     else:
         flatblk = (flatblk-np.min(flatblk, axis=(1,2), keepdims=True)) / (np.max(flatblk, axis=(1,2), keepdims=True) - np.min(flatblk, axis=(1,2), keepdims=True)+EPS)
 
-    width = min(flatblk.shape[0],math.ceil(math.sqrt(flatblk.shape[0]*block.shape[2]*block.shape[3])/block.shape[3]))
+    width = math.ceil(math.sqrt(flatblk.shape[0]))
     height = (flatblk.shape[0] + width - 1) // width
     canvas = np.zeros((height*block.shape[2]+height-1,width*block.shape[3]+width-1),'f')
     canvas[:]=0.5
@@ -107,9 +113,9 @@ def DrawPatchLossdiff(block, blknorm = True):
     else:
         flatblk = flatblk / (np.max(abs(flatblk), axis=(1,2), keepdims=True) + EPS)
 
-    width = min(flatblk.shape[0],math.ceil(math.sqrt(flatblk.shape[0]*block.shape[2]*block.shape[3])/block.shape[3]))
+    width = math.ceil(math.sqrt(flatblk.shape[0]))
     height = (flatblk.shape[0] + width - 1) // width
-    canvas = np.zeros((height*block.shape[2]+height-1,width*block.shape[3]+width-1,3),'f')
+    canvas = np.ones((height*block.shape[2]+height-1,width*block.shape[3]+width-1,3),'f')
     for i in range(flatblk.shape[0]):
         y = i // width
         x = i % width
@@ -127,7 +133,7 @@ def DrawPatchRGB(block, blknorm = False):
     else:
         flatblk = (flatblk-np.min(flatblk, axis=(1,2), keepdims=True)) / (np.max(flatblk, axis=(1,2), keepdims=True) - np.min(flatblk, axis=(1,2), keepdims=True)+EPS)
 
-    width = min(flatblk.shape[0],math.ceil(math.sqrt(flatblk.shape[0]*block.shape[2]*block.shape[3])/block.shape[3]))
+    width = math.ceil(math.sqrt(flatblk.shape[0]/3))
     height = (flatblk.shape[0]/3 + width - 1) // width
     canvas = np.zeros((height*block.shape[2]+height-1,width*block.shape[3]+width-1,3),'f')
     for i in range(flatblk.shape[0]/3):
@@ -200,7 +206,7 @@ def MPDrawWriter(*data):
 mpaheadprods = {}
 def MPTwoAheadProducer(prodfuncstr):
     global mpaheadprods
-    insts = 1
+    insts = 4
     if isinstance(prodfuncstr,(tuple,list)):
         prodfuncstr, insts = prodfuncstr
     if prodfuncstr not in mpaheadprods:
